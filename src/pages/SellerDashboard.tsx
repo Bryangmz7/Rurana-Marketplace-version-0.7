@@ -5,7 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StoreSetup from '@/components/StoreSetup';
+import StoreNavigation from '@/components/StoreNavigation';
+import StoreOverview from '@/components/StoreOverview';
 import ProductManagement from '@/components/ProductManagement';
+import StoreManagement from '@/components/StoreManagement';
+import CustomerManagement from '@/components/CustomerManagement';
 import { useToast } from '@/hooks/use-toast';
 
 interface Store {
@@ -21,6 +25,7 @@ const SellerDashboard = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -94,10 +99,32 @@ const SellerDashboard = () => {
 
   const handleStoreCreated = (newStore: Store) => {
     setStore(newStore);
+    setActiveTab('products');
     toast({
       title: "¡Tienda creada exitosamente!",
       description: "Tu tienda ha sido configurada correctamente. Ahora puedes comenzar a agregar productos.",
     });
+  };
+
+  const handleStoreUpdated = (updatedStore: Store) => {
+    setStore(updatedStore);
+  };
+
+  const renderTabContent = () => {
+    if (!store) return null;
+
+    switch (activeTab) {
+      case 'overview':
+        return <StoreOverview storeId={store.id} />;
+      case 'products':
+        return <ProductManagement store={store} />;
+      case 'store':
+        return <StoreManagement store={store} onStoreUpdated={handleStoreUpdated} />;
+      case 'customers':
+        return <CustomerManagement storeId={store.id} />;
+      default:
+        return <StoreOverview storeId={store.id} />;
+    }
   };
 
   if (loading) {
@@ -118,13 +145,22 @@ const SellerDashboard = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!store ? (
+      {!store ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <StoreSetup userId={user.id} onStoreCreated={handleStoreCreated} />
-        ) : (
-          <ProductManagement store={store} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <StoreNavigation 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            storeName={store.name}
+          />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {renderTabContent()}
+          </div>
+        </>
+      )}
       
       <Footer />
     </div>
