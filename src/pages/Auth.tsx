@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,27 +19,34 @@ const Auth = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Esperar un poco para que el trigger cree el perfil
-        setTimeout(async () => {
-          try {
-            const { data: userProfile } = await supabase
-              .from('users')
-              .select('role')
-              .eq('id', session.user.id)
-              .maybeSingle();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('User already logged in, checking profile...');
+          // Esperar un poco para que el trigger cree el perfil
+          setTimeout(async () => {
+            try {
+              const { data: userProfile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', session.user.id)
+                .maybeSingle();
 
-            if (userProfile?.role === 'seller') {
-              navigate('/seller-dashboard');
-            } else {
+              console.log('User profile:', userProfile);
+
+              if (userProfile?.role === 'seller') {
+                navigate('/seller-dashboard');
+              } else {
+                navigate('/marketplace');
+              }
+            } catch (error) {
+              console.log('Profile fetch error:', error);
               navigate('/marketplace');
             }
-          } catch (error) {
-            console.log('Profile fetch error:', error);
-            navigate('/marketplace');
-          }
-        }, 2000);
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
       }
     };
     checkUser();
@@ -90,6 +96,7 @@ const Auth = () => {
     try {
       if (isLogin) {
         // Login flow
+        console.log('Attempting login...');
         const { error, data } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
@@ -126,10 +133,11 @@ const Auth = () => {
             console.log('Profile fetch error after login:', profileError);
             navigate('/marketplace');
           }
-        }, 1000);
+        }, 500);
 
       } else {
         // Sign up flow
+        console.log('Attempting signup with role:', selectedRole);
         const { error, data } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -215,6 +223,8 @@ const Auth = () => {
         errorMessage = "El registro está temporalmente deshabilitado.";
       } else if (error.message?.includes('Email rate limit exceeded')) {
         errorMessage = "Demasiados intentos. Espera unos minutos antes de volver a intentar.";
+      } else if (error.message?.includes('Database error saving new user')) {
+        errorMessage = "Error al crear el perfil de usuario. Intenta de nuevo.";
       }
       
       toast({

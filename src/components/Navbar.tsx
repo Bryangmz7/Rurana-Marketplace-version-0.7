@@ -64,11 +64,12 @@ const Navbar = () => {
         setUser(session?.user || null);
         
         if (session?.user) {
+          // Esperar un poco antes de buscar el perfil para dar tiempo al trigger
           setTimeout(() => {
             if (mounted) {
               fetchUserProfile(session.user.id);
             }
-          }, 2000);
+          }, 1000);
         } else {
           setUserProfile(null);
           setSellerProfile(null);
@@ -93,7 +94,7 @@ const Navbar = () => {
       // Obtener perfil general del usuario
       let userProfileData = null;
       let attempts = 0;
-      const maxAttempts = 5;
+      const maxAttempts = 3;
 
       while (!userProfileData && attempts < maxAttempts) {
         const { data, error } = await supabase
@@ -104,6 +105,7 @@ const Navbar = () => {
         
         if (error) {
           console.error('Error fetching user profile:', error);
+          break;
         }
         
         if (data) {
@@ -113,7 +115,7 @@ const Navbar = () => {
         
         attempts++;
         if (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
       
