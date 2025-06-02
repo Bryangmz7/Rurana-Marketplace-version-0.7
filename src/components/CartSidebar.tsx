@@ -59,6 +59,36 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         return;
       }
 
+      // Verificar si el usuario tiene perfil de comprador, si no, crearlo
+      const { data: buyerProfile, error: profileError } = await supabase
+        .from('buyer_profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        throw profileError;
+      }
+
+      // Si no tiene perfil de comprador, crear uno básico
+      if (!buyerProfile) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData) {
+          await supabase
+            .from('buyer_profiles')
+            .insert({
+              user_id: session.user.id,
+              name: userData.name,
+              email: userData.email
+            });
+        }
+      }
+
       // Agrupar items por tienda
       const itemsByStore = items.reduce((acc, item) => {
         const storeId = item.product.store_id;
@@ -135,8 +165,8 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
       clearCart();
       
       toast({
-        title: "¡Pedido realizado!",
-        description: `Se han creado ${Object.keys(itemsByStore).length} pedido(s) exitosamente`,
+        title: "¡Pedido realizado exitosamente!",
+        description: `Se han creado ${Object.keys(itemsByStore).length} pedido(s). Puedes ver el estado en tu perfil.`,
       });
 
       onClose();

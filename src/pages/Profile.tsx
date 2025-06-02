@@ -5,7 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ProfileEditor from '@/components/ProfileEditor';
+import OrderHistory from '@/components/OrderHistory';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { User, Package } from 'lucide-react';
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
@@ -70,16 +73,35 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
           <p className="text-gray-600">
-            Gestiona tu información personal y configuración de cuenta
+            Gestiona tu información personal y revisa tu actividad
           </p>
         </div>
 
         {canEditProfile ? (
-          <ProfileEditor userId={user.id} userRole={userRole as 'buyer' | 'seller'} />
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 lg:w-96">
+              <TabsTrigger value="profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Información Personal
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Mis Pedidos
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="profile">
+              <ProfileEditor userId={user.id} userRole={userRole as 'buyer' | 'seller'} />
+            </TabsContent>
+            
+            <TabsContent value="orders">
+              <OrderHistory userId={user.id} />
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="text-center py-8">
             <p className="text-gray-600">Tu tipo de cuenta no permite editar el perfil.</p>
