@@ -7,24 +7,53 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
+interface UserProfile {
+  id: string;
+  name: string;
+  role: 'buyer' | 'seller' | 'admin';
+}
+
 const Navbar = () => {
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get initial session
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
+      
+      if (session?.user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setUserProfile(profile);
+      }
     };
     
     getSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setUser(session?.user || null);
+        
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          setUserProfile(profile);
+        } else {
+          setUserProfile(null);
+        }
       }
     );
 
@@ -48,12 +77,11 @@ const Navbar = () => {
     }
   };
 
-  const handleMarketplaceClick = () => {
-    navigate('/marketplace');
-  };
-
-  const handleAuthClick = () => {
-    navigate('/auth');
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/marketplace?search=${encodeURIComponent(searchQuery)}`);
+    }
   };
 
   return (
@@ -72,7 +100,7 @@ const Navbar = () => {
 
           {/* Search Bar */}
           <div className="flex-1 max-w-lg mx-8">
-            <div className="relative">
+            <form onSubmit={handleSearch} className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
@@ -80,24 +108,31 @@ const Navbar = () => {
                 type="text"
                 placeholder="Buscar productos..."
                 className="pl-10 w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
+            </form>
           </div>
 
           {/* Navigation Links */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={handleMarketplaceClick}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/marketplace')}>
               Marketplace
             </Button>
-            <Button variant="ghost" size="sm">
-              Personalizador
-            </Button>
+            
+            {userProfile?.role === 'seller' && (
+              <Button variant="ghost" size="sm" onClick={() => navigate('/seller-dashboard')}>
+                Mi Tienda
+              </Button>
+            )}
+            
             <Button variant="ghost" size="sm">
               <ShoppingCart className="h-5 w-5" />
             </Button>
             
             {user ? (
               <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Hola, {userProfile?.name}</span>
                 <Button variant="ghost" size="sm">
                   <User className="h-5 w-5" />
                 </Button>
@@ -106,15 +141,11 @@ const Navbar = () => {
                 </Button>
               </div>
             ) : (
-              <Button variant="ghost" size="sm" onClick={handleAuthClick}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
                 <User className="h-5 w-5" />
                 Iniciar Sesión
               </Button>
             )}
-            
-            <Button className="bg-primary hover:bg-primary-600">
-              Vender
-            </Button>
           </div>
         </div>
       </div>

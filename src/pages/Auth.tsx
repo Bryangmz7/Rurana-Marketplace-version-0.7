@@ -5,18 +5,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { ShoppingBag, Store } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'buyer' | 'seller' | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -28,30 +29,53 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isLogin && !selectedRole) {
+      toast({
+        title: "Error",
+        description: "Selecciona si quieres comprar o vender",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error, data } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         
         if (error) throw error;
         
+        // Check user role and redirect accordingly
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
         toast({
           title: "¡Bienvenido!",
           description: "Has iniciado sesión correctamente.",
         });
-        navigate('/');
+
+        if (userProfile?.role === 'seller') {
+          navigate('/seller-dashboard');
+        } else {
+          navigate('/marketplace');
+        }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { error, data } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
               name: name,
+              role: selectedRole
             }
           }
         });
@@ -59,16 +83,15 @@ const Auth = () => {
         if (error) throw error;
         
         // Create user profile
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        if (data.user) {
           const { error: profileError } = await supabase
             .from('users')
             .insert([
               {
-                id: user.id,
+                id: data.user.id,
                 name: name,
                 email: email,
-                role: 'buyer'
+                role: selectedRole
               }
             ]);
           
@@ -105,6 +128,42 @@ const Auth = () => {
             {isLogin ? 'Accede a tu cuenta de RURANA' : 'Únete a la comunidad RURANA'}
           </p>
         </div>
+
+        {!isLogin && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              ¿Qué quieres hacer?
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('buyer')}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  selectedRole === 'buyer'
+                    ? 'border-primary bg-primary-50 text-primary'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <ShoppingBag className="h-8 w-8 mx-auto mb-2" />
+                <div className="font-medium">Comprar</div>
+                <div className="text-xs text-gray-500">Buscar productos únicos</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('seller')}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  selectedRole === 'seller'
+                    ? 'border-primary bg-primary-50 text-primary'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Store className="h-8 w-8 mx-auto mb-2" />
+                <div className="font-medium">Vender</div>
+                <div className="text-xs text-gray-500">Crear mi tienda</div>
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleAuth} className="space-y-6">
           {!isLogin && (
