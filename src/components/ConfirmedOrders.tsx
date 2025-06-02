@@ -51,11 +51,6 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
         .from('orders')
         .select(`
           *,
-          buyer_profiles!orders_buyer_id_fkey (
-            name,
-            email,
-            phone
-          ),
           order_items (
             quantity,
             unit_price,
@@ -70,11 +65,24 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Transform the data to match our interface
+
+      // Obtener los perfiles de buyer por separado
+      const buyerIds = data?.map(order => order.buyer_id) || [];
+      const { data: buyerProfiles, error: profileError } = await supabase
+        .from('buyer_profiles')
+        .select('user_id, name, email, phone')
+        .in('user_id', buyerIds);
+
+      if (profileError) throw profileError;
+
+      // Combinar los datos
       const transformedOrders = data?.map(order => ({
         ...order,
-        buyer_profile: order.buyer_profiles
+        buyer_profile: buyerProfiles?.find(profile => profile.user_id === order.buyer_id) || {
+          name: 'Cliente desconocido',
+          email: '',
+          phone: ''
+        }
       })) || [];
       
       setOrders(transformedOrders);
