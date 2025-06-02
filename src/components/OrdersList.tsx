@@ -81,11 +81,19 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
             if (!buyerProfile) {
               const { data: sellerProfile } = await supabase
                 .from('seller_profiles')
-                .select('name, phone, email, business_name as address, avatar_url')
+                .select('name, phone, email, business_name, avatar_url')
                 .eq('user_id', order.buyer_id)
                 .maybeSingle();
               
-              buyerProfile = sellerProfile;
+              if (sellerProfile) {
+                buyerProfile = {
+                  name: sellerProfile.name,
+                  phone: sellerProfile.phone,
+                  email: sellerProfile.email,
+                  address: sellerProfile.business_name,
+                  avatar_url: sellerProfile.avatar_url
+                };
+              }
             }
 
             // Si tampoco hay seller_profile, obtener de users
