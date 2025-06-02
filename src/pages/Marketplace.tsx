@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +17,7 @@ interface Store {
   logo_url?: string;
   user_id: string;
   product_count?: number;
+  created_at: string;
 }
 
 interface FilterState {
