@@ -15,7 +15,7 @@ interface CartSidebarProps {
 }
 
 const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
-  const { items, updateQuantity, removeFromCart, clearCart, getCartTotal } = useCart();
+  const { items, updateQuantity, removeFromCart, clearCart, total } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutData, setCheckoutData] = useState({
     delivery_address: '',
@@ -242,7 +242,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           <div className="border-t p-4 space-y-4">
             <div className="flex justify-between items-center text-lg font-semibold">
               <span>Total:</span>
-              <span className="text-primary">S/{getCartTotal().toFixed(2)}</span>
+              <span className="text-primary">S/{total.toFixed(2)}</span>
             </div>
 
             <div className="space-y-3">
