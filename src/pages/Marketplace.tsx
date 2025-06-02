@@ -21,6 +21,7 @@ interface Product {
   category: string;
   delivery_time: number;
   stock: number;
+  created_at: string;
   store: {
     id: string;
     name: string;
@@ -112,7 +113,7 @@ const Marketplace = () => {
         filtered.sort((a, b) => b.price - a.price);
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
       case 'rating':
         filtered.sort((a, b) => (b.store?.rating || 0) - (a.store?.rating || 0));
