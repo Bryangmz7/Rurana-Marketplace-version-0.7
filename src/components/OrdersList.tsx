@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, Calendar } from 'lucide-react';
+import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, Calendar, Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -43,9 +43,28 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
   useEffect(() => {
     fetchOrders();
     
-    // Configurar suscripción en tiempo real para actualizaciones de estado
+    // Configurar suscripción en tiempo real para nuevos pedidos
     const channel = supabase
-      .channel('orders-updates')
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${storeId}`
+        },
+        (payload) => {
+          console.log('New order received:', payload);
+          // Recargar pedidos cuando llega uno nuevo
+          fetchOrders();
+          
+          toast({
+            title: "¡Nuevo pedido!",
+            description: `Has recibido un nuevo pedido por S/${payload.new.total}`,
+          });
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -64,12 +83,31 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
           ));
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${storeId}`
+        },
+        (payload) => {
+          console.log('Order deleted:', payload);
+          // Remover el pedido del estado local
+          setOrders(prev => prev.filter(order => order.id !== payload.old.id));
+          
+          toast({
+            title: "Pedido eliminado",
+            description: "El pedido ha sido eliminado correctamente",
+          });
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [storeId]);
+  }, [storeId, toast]);
 
   const fetchOrders = async () => {
     try {
@@ -104,7 +142,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
               .eq('user_id', order.buyer_id)
               .maybeSingle();
 
-            // Si no hay buyer_profile, intentar seller_profile
+            // Si no hay buyer_profile, intentar seller_profile (en caso de que un seller haga una compra)
             if (!buyerProfile) {
               const { data: sellerProfile } = await supabase
                 .from('seller_profiles')
@@ -153,7 +191,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
               }
             };
           } catch (error) {
-            console.error('Error fetching buyer profile:', error);
+            console.error('Error fetching buyer profile for order:', order.id, error);
             return {
               ...order,
               buyer_profile: { 
@@ -204,6 +242,41 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado del pedido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    try {
+      // Primero eliminar los items del pedido
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+
+      if (itemsError) throw itemsError;
+
+      // Luego eliminar el pedido
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (orderError) throw orderError;
+
+      // Actualizar estado local inmediatamente
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+
+      toast({
+        title: "Pedido eliminado",
+        description: "El pedido ha sido eliminado correctamente",
+      });
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el pedido",
         variant: "destructive",
       });
     }
@@ -286,7 +359,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Gestión de Pedidos</h2>
-          <p className="text-gray-600">Administra todos los pedidos de tu tienda</p>
+          <p className="text-gray-600">Administra todos los pedidos de tu tienda • Sincronización automática</p>
         </div>
         <Button onClick={fetchOrders} variant="outline">
           <Package className="h-4 w-4 mr-2" />
@@ -319,10 +392,20 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                       </div>
                     </div>
                   </div>
-                  <Badge className={`${getStatusColor(order.status)} border`}>
-                    {getStatusIcon(order.status)}
-                    <span className="ml-1">{getStatusText(order.status)}</span>
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${getStatusColor(order.status)} border`}>
+                      {getStatusIcon(order.status)}
+                      <span className="ml-1">{getStatusText(order.status)}</span>
+                    </Badge>
+                    <Button
+                      onClick={() => deleteOrder(order.id)}
+                      variant="destructive"
+                      size="sm"
+                      className="ml-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               

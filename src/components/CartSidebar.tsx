@@ -1,12 +1,13 @@
-
-import { useState } from 'react';
-import { X, ShoppingBag } from 'lucide-react';
+import React, { useState } from 'react';
+import { X } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { useCart } from '@/components/CartContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import CartItem from './CartItem';
-import CheckoutForm from './CheckoutForm';
+import { Input } from './ui/input';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -14,78 +15,76 @@ interface CartSidebarProps {
 }
 
 const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
-  const { items, updateQuantity, removeFromCart, clearCart, total } = useCart();
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const { items, clearCart } = useCart();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
 
-  const handleQuantityChange = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCart(productId);
-    } else {
-      updateQuantity(productId, newQuantity);
+  const handleCheckout = async () => {
+    if (!user) {
+      toast({
+        title: "Inicia sesión",
+        description: "Necesitas iniciar sesión para realizar una compra",
+        variant: "destructive",
+      });
+      return;
     }
-  };
 
-  const handleCheckout = async (checkoutData: { delivery_address: string; notes: string }) => {
     if (items.length === 0) {
       toast({
         title: "Carrito vacío",
-        description: "Agrega productos antes de realizar el pedido",
+        description: "Agrega productos al carrito antes de proceder",
         variant: "destructive",
       });
       return;
     }
 
-    if (!checkoutData.delivery_address.trim()) {
-      toast({
-        title: "Dirección requerida",
-        description: "Por favor ingresa una dirección de entrega",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsCheckingOut(true);
+    setIsProcessing(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Error",
-          description: "Debes iniciar sesión para realizar un pedido",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Verificar si el usuario tiene perfil de comprador, si no, crearlo
-      const { data: buyerProfile, error: profileError } = await supabase
+      // Verificar si el usuario tiene un perfil de buyer, si no, crearlo
+      let { data: buyerProfile } = await supabase
         .from('buyer_profiles')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .maybeSingle();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
-      }
-
-      // Si no tiene perfil de comprador, crear uno básico
+      // Si no existe perfil de buyer, crearlo con datos del usuario
       if (!buyerProfile) {
         const { data: userData } = await supabase
           .from('users')
           .select('name, email')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single();
 
-        if (userData) {
-          await supabase
-            .from('buyer_profiles')
-            .insert({
-              user_id: session.user.id,
-              name: userData.name,
-              email: userData.email
-            });
+        const { data: newBuyerProfile, error: profileError } = await supabase
+          .from('buyer_profiles')
+          .insert({
+            user_id: user.id,
+            name: userData?.name || 'Usuario',
+            email: userData?.email || '',
+            phone: null,
+            address: deliveryAddress || null
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          throw profileError;
+        }
+
+        buyerProfile = newBuyerProfile;
+      } else if (deliveryAddress && deliveryAddress !== buyerProfile.address) {
+        // Actualizar la dirección si es diferente
+        const { error: updateError } = await supabase
+          .from('buyer_profiles')
+          .update({ address: deliveryAddress })
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Error updating buyer address:', updateError);
         }
       }
 
@@ -99,32 +98,32 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         return acc;
       }, {} as Record<string, typeof items>);
 
-      // Crear una orden por cada tienda
-      for (const [storeId, storeItems] of Object.entries(itemsByStore)) {
+      // Crear un pedido por cada tienda
+      const orderPromises = Object.entries(itemsByStore).map(async ([storeId, storeItems]) => {
         const total = storeItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-        // Crear la orden
+        // Crear el pedido
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
-            buyer_id: session.user.id,
+            buyer_id: user.id,
             store_id: storeId,
             total,
-            delivery_address: checkoutData.delivery_address,
-            notes: checkoutData.notes,
-            status: 'pending'
+            status: 'pending',
+            delivery_address: deliveryAddress || null,
+            notes: orderNotes || null,
           })
           .select()
           .single();
 
         if (orderError) throw orderError;
 
-        // Crear los items de la orden
+        // Crear los items del pedido
         const orderItems = storeItems.map(item => ({
           order_id: order.id,
           product_id: item.product.id,
           quantity: item.quantity,
-          unit_price: item.product.price
+          unit_price: item.product.price,
         }));
 
         const { error: itemsError } = await supabase
@@ -133,109 +132,94 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
         if (itemsError) throw itemsError;
 
-        // Actualizar stock de productos
-        for (const item of storeItems) {
-          const { error: stockError } = await supabase
-            .from('products')
-            .update({ 
-              stock: Math.max(0, item.product.stock - item.quantity)
-            })
-            .eq('id', item.product.id);
+        return order;
+      });
 
-          if (stockError) {
-            console.error('Error updating stock:', stockError);
-          }
-        }
+      await Promise.all(orderPromises);
 
-        // Limpiar carrito (solo los items de esta tienda)
-        for (const item of storeItems) {
-          const { error: cartError } = await supabase
-            .from('cart_items')
-            .delete()
-            .eq('user_id', session.user.id)
-            .eq('product_id', item.product.id);
-
-          if (cartError) {
-            console.error('Error clearing cart:', cartError);
-          }
-        }
-      }
-
-      // Limpiar carrito local
+      // Limpiar carrito
       clearCart();
-      
+      setDeliveryAddress('');
+      setOrderNotes('');
+
       toast({
-        title: "¡Pedido realizado exitosamente!",
-        description: `Se han creado ${Object.keys(itemsByStore).length} pedido(s). Puedes ver el estado en tu perfil.`,
+        title: "¡Pedido realizado!",
+        description: "Tu pedido ha sido enviado a los vendedores. Te notificaremos cuando confirmen el pedido.",
       });
 
       onClose();
-    } catch (error: any) {
-      console.error('Checkout error:', error);
+    } catch (error) {
+      console.error('Error during checkout:', error);
       toast({
-        title: "Error en el pedido",
-        description: error.message || "No se pudo procesar el pedido",
+        title: "Error al procesar el pedido",
+        description: "Hubo un problema al procesar tu pedido. Inténtalo de nuevo.",
         variant: "destructive",
       });
     } finally {
-      setIsCheckingOut(false);
+      setIsProcessing(false);
     }
   };
 
-  if (!isOpen) return null;
+  const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
   return (
-    <>
-      {/* Overlay */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
-      
-      {/* Sidebar */}
-      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Carrito</h2>
-            <span className="bg-primary text-white text-xs px-2 py-1 rounded-full">
-              {items.length}
-            </span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
+    <div
+      className={`fixed top-0 right-0 w-full sm:w-96 h-full bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      } z-50`}
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">Carrito</h2>
+          <Button variant="ghost" onClick={onClose}>
+            <X className="h-6 w-6" />
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <ShoppingBag className="h-12 w-12 mb-4" />
-              <p>Tu carrito está vacío</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {items.map((item) => (
-                <CartItem
-                  key={item.product.id}
-                  item={item}
-                  onQuantityChange={handleQuantityChange}
-                  onRemove={removeFromCart}
-                />
-              ))}
-            </div>
-          )}
+        <Separator className="my-4" />
+
+        {items.length === 0 ? (
+          <p className="text-gray-500">Tu carrito está vacío.</p>
+        ) : (
+          <div className="space-y-4">
+            {items.map((item) => (
+              <CartItem key={item.product.id} item={item} />
+            ))}
+          </div>
+        )}
+
+        <Separator className="my-4" />
+
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">Detalles de entrega</h3>
+          <Input
+            type="text"
+            placeholder="Dirección de entrega"
+            value={deliveryAddress}
+            onChange={(e) => setDeliveryAddress(e.target.value)}
+          />
+          <Input
+            type="text"
+            placeholder="Notas del pedido (opcional)"
+            value={orderNotes}
+            onChange={(e) => setOrderNotes(e.target.value)}
+          />
         </div>
 
-        {/* Checkout Section */}
-        {items.length > 0 && (
-          <CheckoutForm
-            total={total}
-            onCheckout={handleCheckout}
-            isProcessing={isCheckingOut}
-          />
-        )}
+        <Separator className="my-4" />
+
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold">Total: S/{total.toFixed(2)}</h3>
+          <Button
+            onClick={handleCheckout}
+            disabled={isProcessing}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {isProcessing ? 'Procesando...' : 'Checkout'}
+          </Button>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
