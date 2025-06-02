@@ -1,0 +1,249 @@
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Package, User, MessageSquare, Calendar, DollarSign } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface Order {
+  id: string;
+  buyer_id: string;
+  total: number;
+  status: string;
+  created_at: string;
+  delivery_address: string;
+  notes: string;
+  buyer_profile: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  order_items: {
+    quantity: number;
+    unit_price: number;
+    products: {
+      name: string;
+      image_urls: string[];
+    };
+  }[];
+}
+
+interface ConfirmedOrdersProps {
+  storeId: string;
+}
+
+const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchConfirmedOrders();
+  }, [storeId]);
+
+  const fetchConfirmedOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          buyer_profiles!orders_buyer_id_fkey (
+            name,
+            email,
+            phone
+          ),
+          order_items (
+            quantity,
+            unit_price,
+            products (
+              name,
+              image_urls
+            )
+          )
+        `)
+        .eq('store_id', storeId)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching confirmed orders:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los pedidos confirmados",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      await fetchConfirmedOrders();
+      toast({
+        title: "Estado actualizado",
+        description: `El pedido se ha marcado como ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del pedido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-blue-100 text-blue-800';
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'Confirmado';
+      case 'in_progress': return 'En Proceso';
+      case 'completed': return 'Completado';
+      default: return status;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No hay pedidos confirmados
+        </h3>
+        <p className="text-gray-600">
+          Cuando los clientes confirmen sus compras aparecerán aquí.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Pedidos Confirmados</h3>
+        <Badge variant="secondary">
+          {orders.length} pedido{orders.length !== 1 ? 's' : ''}
+        </Badge>
+      </div>
+
+      <div className="grid gap-6">
+        {orders.map((order) => (
+          <Card key={order.id} className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <User className="h-5 w-5 text-gray-500" />
+                <div>
+                  <h4 className="font-semibold">{order.buyer_profile?.name}</h4>
+                  <p className="text-sm text-gray-600">{order.buyer_profile?.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge className={getStatusColor(order.status)}>
+                  {getStatusText(order.status)}
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-green-600 border-green-600 hover:bg-green-50"
+                >
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  WhatsApp
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Calendar className="h-4 w-4" />
+                {new Date(order.created_at).toLocaleDateString('es-ES')}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <DollarSign className="h-4 w-4" />
+                Total: S/{order.total}
+              </div>
+            </div>
+
+            {order.delivery_address && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700">Dirección de entrega:</p>
+                <p className="text-sm text-gray-600">{order.delivery_address}</p>
+              </div>
+            )}
+
+            {order.notes && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700">Notas del cliente:</p>
+                <p className="text-sm text-gray-600">{order.notes}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">Productos:</p>
+              <div className="space-y-2">
+                {order.order_items?.map((item, index) => (
+                  <div key={index} className="flex items-center gap-3 text-sm">
+                    <span className="font-medium">{item.quantity}x</span>
+                    <span>{item.products?.name}</span>
+                    <span className="text-gray-500">S/{item.unit_price}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {order.status === 'confirmed' && (
+                <Button
+                  size="sm"
+                  onClick={() => updateOrderStatus(order.id, 'in_progress')}
+                  className="bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Marcar en Proceso
+                </Button>
+              )}
+              {order.status === 'in_progress' && (
+                <Button
+                  size="sm"
+                  onClick={() => updateOrderStatus(order.id, 'completed')}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Marcar Completado
+                </Button>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default ConfirmedOrders;

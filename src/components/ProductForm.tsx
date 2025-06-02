@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { X, Upload, Trash2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ProductImageUpload from './ProductImageUpload';
 
 interface Product {
   id?: string;
@@ -35,7 +36,7 @@ const ProductForm = ({ storeId, product, onSave, onCancel }: ProductFormProps) =
     category: product?.category || '',
     delivery_time: product?.delivery_time?.toString() || ''
   });
-  const [images, setImages] = useState<File[]>([]);
+  const [imageUrl, setImageUrl] = useState(product?.image_urls?.[0] || '');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -52,23 +53,6 @@ const ProductForm = ({ storeId, product, onSave, onCancel }: ProductFormProps) =
 
   const handleInputChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (images.length + files.length > 5) {
-      toast({
-        title: "Límite de imágenes",
-        description: "Puedes subir máximo 5 imágenes por producto.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setImages([...images, ...files]);
-  };
-
-  const removeImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,7 +78,7 @@ const ProductForm = ({ storeId, product, onSave, onCancel }: ProductFormProps) =
         stock: parseInt(formData.stock),
         category: formData.category,
         delivery_time: parseInt(formData.delivery_time) || 7,
-        image_urls: product?.image_urls || []
+        image_urls: imageUrl ? [imageUrl] : []
       };
 
       let data;
@@ -249,53 +233,13 @@ const ProductForm = ({ storeId, product, onSave, onCancel }: ProductFormProps) =
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Imágenes del producto (1-5 imágenes)
+            Imagen del producto *
           </label>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-            <div className="text-center">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <div className="mt-2">
-                <label htmlFor="images" className="cursor-pointer">
-                  <span className="text-primary hover:text-primary-600 font-medium">
-                    Seleccionar archivos
-                  </span>
-                  <input
-                    id="images"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                </label>
-                <p className="text-gray-500">o arrastra y suelta aquí</p>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF hasta 10MB</p>
-            </div>
-          </div>
-
-          {images.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {images.map((image, index) => (
-                <div key={index} className="relative">
-                  <img
-                    src={URL.createObjectURL(image)}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-20 object-cover rounded-md"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 p-0 hover:bg-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+          <ProductImageUpload
+            onImageUploaded={setImageUrl}
+            currentImage={imageUrl}
+            userId={storeId}
+          />
         </div>
 
         <div className="flex gap-4 pt-6">

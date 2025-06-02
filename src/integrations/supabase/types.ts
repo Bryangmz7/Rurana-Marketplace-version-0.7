@@ -118,6 +118,24 @@ export type Database = {
           },
         ]
       }
+      departments: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -386,7 +404,9 @@ export type Database = {
       }
       stores: {
         Row: {
+          category: string | null
           created_at: string
+          department: string | null
           description: string | null
           id: string
           logo_url: string | null
@@ -395,7 +415,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           logo_url?: string | null
@@ -404,7 +426,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category?: string | null
           created_at?: string
+          department?: string | null
           description?: string | null
           id?: string
           logo_url?: string | null
