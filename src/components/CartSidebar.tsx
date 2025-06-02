@@ -58,9 +58,9 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           .from('buyer_profiles')
           .insert({
             user_id: user.id,
-            name: user.user_metadata?.name || 'Usuario',
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuario',
             email: user.email || '',
-            phone: null,
+            phone: user.user_metadata?.phone || null,
             address: deliveryAddress || null
           })
           .select()
@@ -75,7 +75,10 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         // Actualizar la dirección si es diferente
         const { error: updateError } = await supabase
           .from('buyer_profiles')
-          .update({ address: deliveryAddress })
+          .update({ 
+            address: deliveryAddress,
+            phone: user.user_metadata?.phone || buyerProfile.phone
+          })
           .eq('user_id', user.id);
 
         if (updateError) {

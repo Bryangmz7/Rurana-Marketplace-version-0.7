@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin } from 'lucide-react';
+import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -35,6 +35,7 @@ interface Order {
 const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -127,6 +128,7 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    setUpdatingOrder(orderId);
     try {
       const { error } = await supabase
         .from('orders')
@@ -150,6 +152,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
         description: "No se pudo actualizar el estado del pedido",
         variant: "destructive",
       });
+    } finally {
+      setUpdatingOrder(null);
     }
   };
 
@@ -170,6 +174,16 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
       case 'completed': return <CheckCircle className="h-4 w-4" />;
       case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Package className="h-4 w-4" />;
+    }
+  };
+
+  const getStatusText = (status: Order['status']) => {
+    switch (status) {
+      case 'confirmed': return 'Confirmado';
+      case 'in_progress': return 'En Progreso';
+      case 'completed': return 'Completado';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
     }
   };
 
@@ -203,131 +217,144 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Pedidos Confirmados</h2>
-        <Button onClick={fetchOrders} variant="outline">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Clientes</h2>
+          <p className="text-gray-600">Administra los pedidos confirmados y comunícate con tus clientes</p>
+        </div>
+        <Button onClick={fetchOrders} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
           Actualizar
         </Button>
       </div>
 
       {orders.length === 0 ? (
         <Card>
-          <CardContent className="text-center py-8">
-            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No hay pedidos confirmados</p>
+          <CardContent className="text-center py-12">
+            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay pedidos confirmados</h3>
+            <p className="text-gray-500">Los pedidos confirmados aparecerán aquí</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6">
           {orders.map((order) => (
-            <Card key={order.id}>
-              <CardHeader>
+            <Card key={order.id} className="overflow-hidden">
+              <CardHeader className="bg-gray-50 border-b">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    Pedido #{order.id.slice(-6)}
-                  </CardTitle>
-                  <Badge className={getStatusColor(order.status)}>
-                    {getStatusIcon(order.status)}
-                    <span className="ml-1 capitalize">{order.status}</span>
-                  </Badge>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {new Date(order.created_at).toLocaleString('es-PE')}
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-lg">
+                      Pedido #{order.id.slice(-6)}
+                    </CardTitle>
+                    <Badge className={getStatusColor(order.status)}>
+                      {getStatusIcon(order.status)}
+                      <span className="ml-1">{getStatusText(order.status)}</span>
+                    </Badge>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-600">S/{order.total.toFixed(2)}</div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString('es-PE', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Información del comprador */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="h-5 w-5 text-blue-600" />
-                    <h4 className="font-medium text-blue-900">Información del Comprador</h4>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Nombre:</span>
-                      <span>{order.buyer_profile?.name || 'No disponible'}</span>
+              
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Información del cliente */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <User className="h-5 w-5 text-blue-600" />
+                      <h4 className="font-medium text-blue-900">Cliente</h4>
                     </div>
-                    {order.buyer_profile?.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                        <span>{order.buyer_profile.phone}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => contactBuyer(order)}
-                          className="text-green-600 border-green-600 hover:bg-green-50 ml-auto"
-                        >
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          Contactar por WhatsApp
-                        </Button>
+                    <div className="space-y-2">
+                      <div className="font-medium">{order.buyer_profile?.name || 'Usuario'}</div>
+                      {order.buyer_profile?.phone && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-4 w-4 text-gray-500" />
+                            <span>{order.buyer_profile.phone}</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => contactBuyer(order)}
+                            className="text-green-600 border-green-600 hover:bg-green-50"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      {order.delivery_address && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                          <span className="text-gray-600">{order.delivery_address}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Productos */}
+                  <div className="lg:col-span-2">
+                    <h4 className="font-medium mb-3">Productos</h4>
+                    <div className="space-y-2">
+                      {order.order_items.map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          {item.product.image_urls && item.product.image_urls[0] && (
+                            <img
+                              src={item.product.image_urls[0]}
+                              alt={item.product.name}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium">{item.product.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {item.quantity} × S/{item.unit_price}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">S/{(item.quantity * item.unit_price).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {order.notes && (
+                      <div className="mt-4">
+                        <h5 className="font-medium mb-1">Notas del pedido:</h5>
+                        <p className="text-sm text-gray-600 bg-yellow-50 p-2 rounded border">{order.notes}</p>
                       </div>
                     )}
-                    {order.delivery_address && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                        <div>
-                          <span className="font-medium">Dirección:</span>
-                          <p className="text-gray-600">{order.delivery_address}</p>
-                        </div>
+
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <div className="text-sm text-gray-500">
+                        Cambiar estado:
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Productos */}
-                <div>
-                  <h4 className="font-medium mb-2">Productos:</h4>
-                  <div className="space-y-2">
-                    {order.order_items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                        {item.product.image_urls && item.product.image_urls[0] && (
-                          <img
-                            src={item.product.image_urls[0]}
-                            alt={item.product.name}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium">{item.product.name}</p>
-                          <p className="text-sm text-gray-600">
-                            Cantidad: {item.quantity} × S/{item.unit_price}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">S/{(item.quantity * item.unit_price).toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {order.notes && (
-                  <div>
-                    <h4 className="font-medium mb-1">Notas:</h4>
-                    <p className="text-gray-600 text-sm bg-gray-50 p-2 rounded">{order.notes}</p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="text-lg font-bold">
-                    Total: S/{order.total.toFixed(2)}
-                  </div>
-                  <div className="flex gap-2">
-                    <Select
-                      value={order.status}
-                      onValueChange={(value: Order['status']) => updateOrderStatus(order.id, value)}
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="confirmed">Confirmado</SelectItem>
-                        <SelectItem value="in_progress">En Progreso</SelectItem>
-                        <SelectItem value="completed">Completado</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select
+                        value={order.status}
+                        onValueChange={(value: Order['status']) => updateOrderStatus(order.id, value)}
+                        disabled={updatingOrder === order.id}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="confirmed">Confirmado</SelectItem>
+                          <SelectItem value="in_progress">En Progreso</SelectItem>
+                          <SelectItem value="completed">Completado</SelectItem>
+                          <SelectItem value="cancelled">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </CardContent>

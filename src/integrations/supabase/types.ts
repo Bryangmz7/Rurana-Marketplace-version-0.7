@@ -407,6 +407,7 @@ export type Database = {
           category: string | null
           created_at: string
           department: string | null
+          department_id: string | null
           description: string | null
           id: string
           logo_url: string | null
@@ -418,6 +419,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           department?: string | null
+          department_id?: string | null
           description?: string | null
           id?: string
           logo_url?: string | null
@@ -429,6 +431,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           department?: string | null
+          department_id?: string | null
           description?: string | null
           id?: string
           logo_url?: string | null
@@ -437,6 +440,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stores_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stores_user_id_fkey"
             columns: ["user_id"]

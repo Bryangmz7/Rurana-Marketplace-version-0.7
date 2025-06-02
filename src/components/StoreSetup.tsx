@@ -13,14 +13,19 @@ interface StoreSetupProps {
   onStoreCreated: (store: any) => void;
 }
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     category: '',
-    department: ''
+    department_id: ''
   });
-  const [departments, setDepartments] = useState<string[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -43,13 +48,18 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     try {
       const { data, error } = await supabase
         .from('departments')
-        .select('name')
+        .select('id, name')
         .order('name');
 
       if (error) throw error;
-      setDepartments(data?.map(d => d.name) || []);
+      setDepartments(data || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los departamentos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -58,6 +68,9 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     setLoading(true);
 
     try {
+      // Obtener el nombre del departamento seleccionado
+      const selectedDepartment = departments.find(d => d.id === formData.department_id);
+      
       const { data, error } = await supabase
         .from('stores')
         .insert([
@@ -66,7 +79,8 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             name: formData.name,
             description: formData.description,
             category: formData.category,
-            department: formData.department,
+            department: selectedDepartment?.name || null,
+            department_id: formData.department_id || null,
             rating: 0
           }
         ])
@@ -156,14 +170,14 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Departamento *
               </label>
-              <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
+              <Select value={formData.department_id} onValueChange={(value) => handleInputChange('department_id', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un departamento" />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((department) => (
-                    <SelectItem key={department} value={department}>
-                      {department}
+                    <SelectItem key={department.id} value={department.id}>
+                      {department.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
