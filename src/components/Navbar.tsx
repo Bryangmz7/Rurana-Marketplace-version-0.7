@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,11 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import NotificationCenter from '@/components/NotificationCenter';
+
 interface UserProfile {
   id: string;
   name: string;
   role: 'buyer' | 'seller' | 'admin';
 }
+
 interface SellerProfile {
   id: string;
   user_id: string;
@@ -18,6 +21,7 @@ interface SellerProfile {
   business_name: string;
   verified: boolean;
 }
+
 const Navbar = () => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -25,19 +29,16 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+
   useEffect(() => {
     let mounted = true;
+    
     const getSession = async () => {
       try {
-        const {
-          data: {
-            session
-          }
-        } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
+        
         setUser(session?.user || null);
         if (session?.user) {
           await fetchUserProfile(session.user.id);
@@ -50,15 +51,15 @@ const Navbar = () => {
         }
       }
     };
+
     getSession();
-    const {
-      data: {
-        subscription
-      }
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      
       console.log('Auth state change:', event, session?.user?.id);
       setUser(session?.user || null);
+      
       if (session?.user) {
         // Esperar un poco antes de buscar el perfil para dar tiempo al trigger
         setTimeout(() => {
@@ -70,50 +71,61 @@ const Navbar = () => {
         setUserProfile(null);
         setSellerProfile(null);
       }
+      
       if (mounted) {
         setLoading(false);
       }
     });
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
+
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId);
-
+      
       // Obtener perfil general del usuario
       let userProfileData = null;
       let attempts = 0;
       const maxAttempts = 3;
+      
       while (!userProfileData && attempts < maxAttempts) {
-        const {
-          data,
-          error
-        } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+          
         if (error) {
           console.error('Error fetching user profile:', error);
           break;
         }
+        
         if (data) {
           userProfileData = data;
           break;
         }
+        
         attempts++;
         if (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
+      
       console.log('User profile fetched:', userProfileData);
       setUserProfile(userProfileData);
 
       // Si es vendedor, obtener también su perfil de vendedor
       if (userProfileData?.role === 'seller') {
-        const {
-          data: sellerData,
-          error: sellerError
-        } = await supabase.from('seller_profiles').select('*').eq('user_id', userId).maybeSingle();
+        const { data: sellerData, error: sellerError } = await supabase
+          .from('seller_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
         if (sellerError) {
           console.error('Error fetching seller profile:', sellerError);
         } else {
@@ -125,21 +137,20 @@ const Navbar = () => {
       console.error('Error in fetchUserProfile:', error);
     }
   };
+
   const handleSignOut = async () => {
     try {
-      const {
-        error
-      } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
       if (error) {
         toast({
           title: "Error",
           description: "No se pudo cerrar sesión",
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         toast({
           title: "Sesión cerrada",
-          description: "Has cerrado sesión correctamente"
+          description: "Has cerrado sesión correctamente",
         });
         setUser(null);
         setUserProfile(null);
@@ -151,17 +162,20 @@ const Navbar = () => {
       toast({
         title: "Error",
         description: "Ocurrió un error al cerrar sesión",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/marketplace?search=${encodeURIComponent(searchQuery)}`);
     }
   };
-  return <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+
+  return (
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -182,48 +196,88 @@ const Navbar = () => {
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
               </div>
-              <Input type="text" placeholder="Buscar productos únicos..." className="pl-10 w-full rounded-full border-gray-300 focus:border-primary focus:ring-primary" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              <Input
+                type="text"
+                placeholder="Buscar productos únicos..."
+                className="pl-10 w-full rounded-full border-gray-300 focus:border-primary focus:ring-primary"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </form>
           </div>
 
           {/* Navigation Links */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/marketplace')}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/marketplace')}
+            >
               Marketplace
             </Button>
             
-            {!loading && user && userProfile?.role === 'seller' && sellerProfile && <Button variant="ghost" size="sm" onClick={() => navigate('/seller-dashboard')}>
+            {!loading && user && userProfile?.role === 'seller' && sellerProfile && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/seller-dashboard')}
+              >
                 Mi Tienda
-              </Button>}
+              </Button>
+            )}
             
-            {loading ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div> : user ? <div className="flex items-center space-x-2">
+            {loading ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            ) : user ? (
+              <div className="flex items-center space-x-2">
                 {/* Notificaciones */}
                 <NotificationCenter userId={user.id} />
                 
                 <span className="text-sm text-gray-600 hidden sm:block">
                   Hola, {userProfile?.name || user.user_metadata?.name || 'Usuario'}
-                  {userProfile?.role === 'seller' && sellerProfile && <div className="flex items-center gap-1 mt-1">
+                  {userProfile?.role === 'seller' && sellerProfile && (
+                    <div className="flex items-center gap-1 mt-1">
                       <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                         Vendedor
                       </span>
-                      {sellerProfile.verified && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      {sellerProfile.verified && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                           Verificado
-                        </span>}
-                    </div>}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </span>
-                <Button variant="ghost" size="sm" className="Ese boton que la funcionalidad para rellenar los datos porfavor. ">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/profile')}
+                >
                   <User className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleSignOut}
+                >
                   <LogOut className="h-5 w-5" />
                 </Button>
-              </div> : <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
+              </div>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/auth')}
+              >
                 <User className="h-5 w-5" />
                 <span className="ml-1 hidden sm:inline">Iniciar Sesión</span>
-              </Button>}
+              </Button>
+            )}
           </div>
         </div>
       </div>
-    </nav>;
+    </nav>
+  );
 };
+
 export default Navbar;

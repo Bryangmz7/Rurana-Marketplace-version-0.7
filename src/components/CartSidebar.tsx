@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, Minus, ShoppingBag, Truck } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, Truck, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,25 +19,69 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const handleCheckout = async () => {
-    if (items.length === 0) return;
+  const validateCheckout = () => {
+    const newErrors: string[] = [];
+    
+    if (items.length === 0) {
+      newErrors.push('El carrito está vacío');
+    }
     
     if (!deliveryAddress.trim()) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa una dirección de entrega",
-        variant: "destructive",
-      });
+      newErrors.push('La dirección de entrega es obligatoria');
+    }
+    
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
+
+  const handleCheckout = async () => {
+    if (!validateCheckout()) {
       return;
     }
 
     try {
       setIsCheckingOut(true);
+      setErrors([]);
       
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      console.log('Starting checkout process for user:', user.id);
+      console.log('Cart items:', items);
+
+      // Verificar que el usuario tenga un perfil de comprador
+      const { data: buyerProfile, error: buyerError } = await supabase
+        .from('buyer_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (buyerError) {
+        console.error('Error checking buyer profile:', buyerError);
+        throw new Error('Error al verificar el perfil del comprador');
+      }
+
+      if (!buyerProfile) {
+        console.log('No buyer profile found, creating one...');
+        const { error: createError } = await supabase
+          .from('buyer_profiles')
+          .insert({
+            user_id: user.id,
+            name: user.user_metadata?.name || 'Usuario',
+            email: user.email || '',
+            phone: user.user_metadata?.phone || ''
+          });
+
+        if (createError) {
+          console.error('Error creating buyer profile:', createError);
+          throw new Error('Error al crear el perfil del comprador');
+        }
+      }
 
       // Agrupar productos por tienda
       const ordersByStore = items.reduce((acc, item) => {
@@ -49,9 +93,13 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         return acc;
       }, {} as Record<string, typeof items>);
 
+      console.log('Orders grouped by store:', ordersByStore);
+
       // Crear un pedido por cada tienda
       for (const [storeId, storeItems] of Object.entries(ordersByStore)) {
         const storeTotal = storeItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        
+        console.log(`Creating order for store ${storeId} with total ${storeTotal}`);
         
         // Crear el pedido
         const { data: order, error: orderError } = await supabase
@@ -60,14 +108,19 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
             buyer_id: user.id,
             store_id: storeId,
             total: storeTotal,
-            delivery_address: deliveryAddress,
-            notes: notes || null,
+            delivery_address: deliveryAddress.trim(),
+            notes: notes.trim() || null,
             status: 'pending'
           })
           .select()
           .single();
 
-        if (orderError) throw orderError;
+        if (orderError) {
+          console.error('Error creating order:', orderError);
+          throw new Error(`Error al crear el pedido: ${orderError.message}`);
+        }
+
+        console.log('Order created:', order);
 
         // Crear los items del pedido
         const orderItems = storeItems.map(item => ({
@@ -77,13 +130,18 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           unit_price: item.product.price
         }));
 
+        console.log('Creating order items:', orderItems);
+
         const { error: itemsError } = await supabase
           .from('order_items')
           .insert(orderItems);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Error creating order items:', itemsError);
+          throw new Error(`Error al crear los productos del pedido: ${itemsError.message}`);
+        }
 
-        // Obtener información del vendedor
+        // Obtener información del vendedor para la notificación
         const { data: store } = await supabase
           .from('stores')
           .select('user_id, name')
@@ -91,8 +149,10 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           .single();
 
         if (store) {
+          console.log('Creating notification for seller:', store.user_id);
+          
           // Crear notificación para el vendedor
-          await supabase
+          const { error: notificationError } = await supabase
             .from('notifications')
             .insert({
               user_id: store.user_id,
@@ -101,6 +161,11 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
               type: 'order',
               related_order_id: order.id
             });
+
+          if (notificationError) {
+            console.error('Error creating notification:', notificationError);
+            // No lanzar error aquí, la notificación es opcional
+          }
         }
       }
 
@@ -108,19 +173,19 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
       await clearCart();
       
       toast({
-        title: "Pedido realizado",
-        description: "Tu pedido se ha enviado correctamente. El vendedor será notificado.",
+        title: "¡Pedido realizado!",
+        description: "Tu pedido se ha enviado correctamente. El vendedor será notificado y se pondrá en contacto contigo.",
       });
       
       onClose();
       setDeliveryAddress('');
       setNotes('');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating order:', error);
       toast({
-        title: "Error",
-        description: "No se pudo procesar el pedido. Intenta de nuevo.",
+        title: "Error al procesar el pedido",
+        description: error.message || "No se pudo procesar el pedido. Intenta de nuevo.",
         variant: "destructive",
       });
     } finally {
@@ -151,6 +216,21 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
+            {/* Errores */}
+            {errors.length > 0 && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Errores de validación
+                </div>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {errors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {items.length === 0 ? (
               <div className="text-center py-8">
                 <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -238,7 +318,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
               
               <Button
                 onClick={handleCheckout}
-                disabled={isCheckingOut || !deliveryAddress.trim()}
+                disabled={isCheckingOut}
                 className="w-full"
               >
                 {isCheckingOut ? 'Procesando...' : 'Confirmar pedido'}

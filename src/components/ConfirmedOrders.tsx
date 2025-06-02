@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, User, MessageSquare, Calendar, DollarSign } from 'lucide-react';
+import { Package, User, MessageSquare, Calendar, DollarSign, Phone, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -47,6 +48,8 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
 
   const fetchConfirmedOrders = async () => {
     try {
+      console.log('Fetching confirmed orders for store:', storeId);
+      
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -66,26 +69,36 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
 
       if (error) throw error;
 
+      console.log('Orders fetched:', data);
+
       // Obtener los perfiles de buyer por separado
       const buyerIds = data?.map(order => order.buyer_id) || [];
-      const { data: buyerProfiles, error: profileError } = await supabase
-        .from('buyer_profiles')
-        .select('user_id, name, email, phone')
-        .in('user_id', buyerIds);
-
-      if (profileError) throw profileError;
-
-      // Combinar los datos
-      const transformedOrders = data?.map(order => ({
-        ...order,
-        buyer_profile: buyerProfiles?.find(profile => profile.user_id === order.buyer_id) || {
-          name: 'Cliente desconocido',
-          email: '',
-          phone: ''
-        }
-      })) || [];
       
-      setOrders(transformedOrders);
+      if (buyerIds.length > 0) {
+        const { data: buyerProfiles, error: profileError } = await supabase
+          .from('buyer_profiles')
+          .select('user_id, name, email, phone')
+          .in('user_id', buyerIds);
+
+        if (profileError) throw profileError;
+
+        console.log('Buyer profiles fetched:', buyerProfiles);
+
+        // Combinar los datos
+        const transformedOrders = data?.map(order => ({
+          ...order,
+          buyer_profile: buyerProfiles?.find(profile => profile.user_id === order.buyer_id) || {
+            name: 'Cliente desconocido',
+            email: 'No disponible',
+            phone: 'No disponible'
+          }
+        })) || [];
+        
+        console.log('Transformed orders:', transformedOrders);
+        setOrders(transformedOrders);
+      } else {
+        setOrders([]);
+      }
     } catch (error) {
       console.error('Error fetching confirmed orders:', error);
       toast({
@@ -110,7 +123,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
       await fetchConfirmedOrders();
       toast({
         title: "Estado actualizado",
-        description: `El pedido se ha marcado como ${newStatus}`,
+        description: `El pedido se ha marcado como ${getStatusText(newStatus)}`,
       });
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -123,7 +136,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
   };
 
   const openWhatsApp = (order: Order) => {
-    if (!order.buyer_profile.phone) {
+    if (!order.buyer_profile.phone || order.buyer_profile.phone === 'No disponible') {
       toast({
         title: "Número no disponible",
         description: "El cliente no ha proporcionado un número de teléfono",
@@ -142,7 +155,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
     }
 
     // Crear el mensaje para WhatsApp
-    const message = `Hola ${order.buyer_profile.name}, este es el vendedor de tu pedido #${order.id.slice(0, 8)}. Tu pedido por S/${order.total} está confirmado y en proceso. ¿Hay algo específico que necesites saber sobre la entrega?`;
+    const message = `Hola ${order.buyer_profile.name}, soy el vendedor de tu pedido #${order.id.slice(0, 8)}. Tu pedido por S/${order.total} está confirmado y en proceso. ¿Hay algo específico que necesites saber sobre la entrega?`;
     
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -201,14 +214,25 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
         {orders.map((order) => (
           <Card key={order.id} className="p-6">
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-gray-500" />
-                <div>
-                  <h4 className="font-semibold">{order.buyer_profile?.name}</h4>
-                  <p className="text-sm text-gray-600">{order.buyer_profile?.email}</p>
-                  {order.buyer_profile?.phone && (
-                    <p className="text-sm text-gray-500">Tel: {order.buyer_profile.phone}</p>
+              <div className="flex items-start gap-4">
+                <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full">
+                  <User className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-lg">{order.buyer_profile?.name}</h4>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Mail className="h-4 w-4" />
+                    <span>{order.buyer_profile?.email}</span>
+                  </div>
+                  {order.buyer_profile?.phone && order.buyer_profile.phone !== 'No disponible' && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="h-4 w-4" />
+                      <span>{order.buyer_profile.phone}</span>
+                    </div>
                   )}
+                  <div className="text-xs text-gray-500">
+                    Pedido #{order.id.slice(0, 8)}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -219,7 +243,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
                   variant="outline" 
                   size="sm"
                   onClick={() => openWhatsApp(order)}
-                  disabled={!order.buyer_profile.phone}
+                  disabled={!order.buyer_profile.phone || order.buyer_profile.phone === 'No disponible'}
                   className="text-green-600 border-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MessageSquare className="h-4 w-4 mr-1" />
@@ -228,7 +252,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
               </div>
             </div>
 
-            {!order.buyer_profile.phone && (
+            {(!order.buyer_profile.phone || order.buyer_profile.phone === 'No disponible') && (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                 <p className="text-sm text-yellow-800">
                   ⚠️ El cliente no ha proporcionado un número de teléfono. No se puede contactar por WhatsApp.
@@ -239,42 +263,54 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
-                {new Date(order.created_at).toLocaleDateString('es-ES')}
+                {new Date(order.created_at).toLocaleDateString('es-ES', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-sm font-medium text-green-600">
                 <DollarSign className="h-4 w-4" />
                 Total: S/{order.total}
               </div>
             </div>
 
             {order.delivery_address && (
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700">Dirección de entrega:</p>
+              <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  📍 Dirección de entrega:
+                </p>
                 <p className="text-sm text-gray-600">{order.delivery_address}</p>
               </div>
             )}
 
             {order.notes && (
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700">Notas del cliente:</p>
+              <div className="mb-4 p-3 bg-blue-50 rounded-md">
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  💬 Notas del cliente:
+                </p>
                 <p className="text-sm text-gray-600">{order.notes}</p>
               </div>
             )}
 
             <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Productos:</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">📦 Productos:</p>
               <div className="space-y-2">
                 {order.order_items?.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 text-sm">
-                    <span className="font-medium">{item.quantity}x</span>
-                    <span>{item.products?.name}</span>
-                    <span className="text-gray-500">S/{item.unit_price}</span>
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-blue-600">{item.quantity}x</span>
+                      <span className="font-medium">{item.products?.name}</span>
+                    </div>
+                    <span className="text-gray-600">S/{item.unit_price} c/u</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-4 border-t">
               {order.status === 'confirmed' && (
                 <Button
                   size="sm"
