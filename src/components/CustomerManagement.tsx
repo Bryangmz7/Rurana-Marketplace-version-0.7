@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,7 +117,15 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
                 .eq('user_id', order.buyer_id)
                 .maybeSingle();
               
-              buyerProfile = sellerProfile;
+              if (sellerProfile) {
+                buyerProfile = {
+                  name: sellerProfile.name,
+                  phone: sellerProfile.phone,
+                  email: sellerProfile.email,
+                  address: sellerProfile.address,
+                  avatar_url: sellerProfile.avatar_url
+                };
+              }
             }
 
             // Si no hay perfil, obtener datos básicos del usuario
