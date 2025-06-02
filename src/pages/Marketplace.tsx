@@ -4,12 +4,11 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import ProductCard from '@/components/ProductCard';
-import MarketplaceFilters from '@/components/MarketplaceFilters';
+import MarketplaceHeader from '@/components/MarketplaceHeader';
+import MarketplaceLayout from '@/components/MarketplaceLayout';
 import CartSidebar from '@/components/CartSidebar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, ShoppingCart } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { useCart } from '@/components/CartContext';
 
 interface Product {
@@ -71,7 +70,7 @@ const Marketplace = () => {
             rating
           )
         `)
-        .gt('stock', 0); // Solo mostrar productos con stock
+        .gt('stock', 0);
 
       if (error) throw error;
       setProducts(data || []);
@@ -172,97 +171,20 @@ const Marketplace = () => {
         )}
       </Button>
 
-      <section className="py-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Marketplace
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Descubre productos únicos y personalizados de emprendedores verificados
-            </p>
-            
-            {/* Search Bar */}
-            <form onSubmit={handleSearch} className="max-w-md mx-auto mb-8">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Buscar productos..."
-                  className="pl-10 w-full"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Button type="submit" className="absolute inset-y-0 right-0 px-4">
-                  Buscar
-                </Button>
-              </div>
-            </form>
-          </div>
+      <MarketplaceHeader
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onSearch={handleSearch}
+      />
 
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Filters Sidebar */}
-            <div className="lg:w-1/4">
-              <MarketplaceFilters
-                filters={filters}
-                onFiltersChange={setFilters}
-                categories={categories}
-                onClearFilters={clearFilters}
-                resultCount={filteredProducts.length}
-              />
-            </div>
-
-            {/* Main Content */}
-            <div className="lg:w-3/4">
-              <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-600">
-                  Mostrando {filteredProducts.length} de {products.length} productos
-                </p>
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                  className="border border-gray-300 rounded-md px-3 py-2"
-                >
-                  <option value="relevance">Relevancia</option>
-                  <option value="newest">Más recientes</option>
-                  <option value="price_asc">Precio: Menor a mayor</option>
-                  <option value="price_desc">Precio: Mayor a menor</option>
-                  <option value="rating">Mejor calificados</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    id={product.id}
-                    name={product.name}
-                    description={product.description || ''}
-                    price={product.price}
-                    image_urls={product.image_urls || []}
-                    category={product.category || 'Sin categoría'}
-                    delivery_time={product.delivery_time || 7}
-                    stock={product.stock}
-                    store_name={product.store?.name || 'Tienda'}
-                    store_rating={product.store?.rating || 0}
-                  />
-                ))}
-              </div>
-              
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">No se encontraron productos que coincidan con tu búsqueda.</p>
-                  <Button onClick={clearFilters} variant="outline" className="mt-4">
-                    Limpiar filtros
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <MarketplaceLayout
+        products={products}
+        filteredProducts={filteredProducts}
+        filters={filters}
+        onFiltersChange={setFilters}
+        categories={categories}
+        onClearFilters={clearFilters}
+      />
       
       <CartSidebar isOpen={cartOpen} onClose={() => setCartOpen(false)} />
       <Footer />
