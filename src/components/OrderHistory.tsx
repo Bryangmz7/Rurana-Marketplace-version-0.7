@@ -43,7 +43,48 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
 
   useEffect(() => {
     fetchOrderHistory();
-  }, [userId]);
+    
+    // Configurar suscripción en tiempo real para actualizaciones de estado
+    const channel = supabase
+      .channel('buyer-orders-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `buyer_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('Order status updated for buyer:', payload);
+          // Actualizar el estado local cuando el seller cambie el estado
+          setOrders(prev => prev.map(order => 
+            order.id === payload.new.id 
+              ? { ...order, status: payload.new.status }
+              : order
+          ));
+          
+          // Mostrar notificación al comprador cuando cambie el estado
+          const statusTexts = {
+            'pending': 'Pendiente',
+            'confirmed': 'Confirmado',
+            'in_progress': 'En Progreso',
+            'completed': 'Completado',
+            'cancelled': 'Cancelado'
+          };
+          
+          toast({
+            title: "Estado del pedido actualizado",
+            description: `Tu pedido #${payload.new.id.slice(-6)} ahora está: ${statusTexts[payload.new.status as keyof typeof statusTexts]}`,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, toast]);
 
   const fetchOrderHistory = async () => {
     try {
@@ -120,9 +161,9 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
   const getStatusDescription = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'Tu pedido está siendo revisado por el vendedor';
-      case 'confirmed': return 'El vendedor ha confirmado tu pedido';
-      case 'in_progress': return 'Tu pedido está siendo preparado';
-      case 'completed': return 'Tu pedido ha sido entregado';
+      case 'confirmed': return 'El vendedor ha confirmado tu pedido y lo está preparando';
+      case 'in_progress': return 'Tu pedido está siendo preparado para el envío';
+      case 'completed': return 'Tu pedido ha sido entregado exitosamente';
       case 'cancelled': return 'Este pedido fue cancelado';
       default: return '';
     }
@@ -141,7 +182,7 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Mis Pedidos</h2>
-          <p className="text-gray-600">Historial completo de tus compras</p>
+          <p className="text-gray-600">Historial completo de tus compras • Los estados se actualizan automáticamente</p>
         </div>
         <Button onClick={fetchOrderHistory} variant="outline">
           <Package className="h-4 w-4 mr-2" />
@@ -194,7 +235,7 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
                       {getStatusIcon(order.status)}
                       <span className="ml-1">{getStatusText(order.status)}</span>
                     </Badge>
-                    <p className="text-sm text-gray-600">{getStatusDescription(order.status)}</p>
+                    <p className="text-sm text-gray-600 max-w-48 text-right">{getStatusDescription(order.status)}</p>
                   </div>
                 </div>
               </CardHeader>
@@ -254,7 +295,7 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
                     Total: S/{order.total.toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-500">
-                    Estado actualizado automáticamente por el vendedor
+                    🔄 Sincronizado automáticamente con el vendedor
                   </div>
                 </div>
               </CardContent>

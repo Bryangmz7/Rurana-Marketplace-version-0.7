@@ -42,6 +42,33 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
 
   useEffect(() => {
     fetchOrders();
+    
+    // Configurar suscripción en tiempo real para actualizaciones de estado
+    const channel = supabase
+      .channel('orders-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${storeId}`
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          // Actualizar el estado local cuando se actualice un pedido
+          setOrders(prev => prev.map(order => 
+            order.id === payload.new.id 
+              ? { ...order, status: payload.new.status }
+              : order
+          ));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [storeId]);
 
   const fetchOrders = async () => {
@@ -163,13 +190,14 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
 
       if (error) throw error;
 
+      // Actualizar estado local inmediatamente
       setOrders(prev => prev.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
 
       toast({
         title: "Estado actualizado",
-        description: "El estado del pedido se ha actualizado correctamente",
+        description: "El estado del pedido se ha actualizado correctamente y el cliente ha sido notificado",
       });
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -315,8 +343,19 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                     )}
                     
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold text-blue-900 text-lg">Información del Cliente</h4>
+                        {/* Botón de WhatsApp siempre visible si hay teléfono */}
+                        {order.buyer_profile?.phone && (
+                          <Button
+                            onClick={() => contactBuyer(order)}
+                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                            size="sm"
+                          >
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            WhatsApp
+                          </Button>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -336,11 +375,17 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                         </div>
                         
                         <div className="space-y-2">
-                          {order.buyer_profile?.phone && (
+                          {order.buyer_profile?.phone ? (
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4 text-blue-600" />
                               <span className="font-medium">Teléfono:</span>
                               <span className="text-gray-700">{order.buyer_profile.phone}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-gray-500">
+                              <Phone className="h-4 w-4" />
+                              <span className="font-medium">Teléfono:</span>
+                              <span className="italic">No registrado</span>
                             </div>
                           )}
                           
@@ -368,16 +413,12 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                         </div>
                       )}
                       
-                      {order.buyer_profile?.phone && (
-                        <div className="mt-4">
-                          <Button
-                            onClick={() => contactBuyer(order)}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                            size="sm"
-                          >
-                            <MessageCircle className="h-4 w-4 mr-2" />
-                            Contactar por WhatsApp
-                          </Button>
+                      {/* Mensaje si no hay WhatsApp */}
+                      {!order.buyer_profile?.phone && (
+                        <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ Este cliente no tiene número de WhatsApp registrado
+                          </p>
                         </div>
                       )}
                     </div>
