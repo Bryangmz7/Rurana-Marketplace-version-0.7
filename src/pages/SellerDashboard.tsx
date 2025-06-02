@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +18,7 @@ interface Store {
   logo_url?: string;
   rating: number;
   created_at: string;
+  user_id: string;
 }
 
 interface SellerProfile {

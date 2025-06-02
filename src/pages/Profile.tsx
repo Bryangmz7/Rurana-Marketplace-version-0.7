@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
-  const [userRole, setUserRole] = useState<'buyer' | 'seller'>('buyer');
+  const [userRole, setUserRole] = useState<'buyer' | 'seller' | 'admin'>('buyer');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -63,6 +63,9 @@ const Profile = () => {
     );
   }
 
+  // Solo mostrar el editor si es buyer o seller
+  const canEditProfile = userRole === 'buyer' || userRole === 'seller';
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -75,7 +78,13 @@ const Profile = () => {
           </p>
         </div>
 
-        <ProfileEditor userId={user.id} userRole={userRole} />
+        {canEditProfile ? (
+          <ProfileEditor userId={user.id} userRole={userRole as 'buyer' | 'seller'} />
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Tu tipo de cuenta no permite editar el perfil.</p>
+          </div>
+        )}
       </div>
       
       <Footer />

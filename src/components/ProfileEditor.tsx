@@ -125,40 +125,49 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
             <Label htmlFor="email" className="text-sm font-medium mb-2 block">
               Email
             </Label>
-            <Input
-              id="email"
-              type="email"
-              value={profile?.email || ''}
-              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              placeholder="tu@email.com"
-              icon={<Mail className="h-4 w-4" />}
-            />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                id="email"
+                type="email"
+                value={profile?.email || ''}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                placeholder="tu@email.com"
+                className="pl-10"
+              />
+            </div>
           </div>
 
           <div>
             <Label htmlFor="phone" className="text-sm font-medium mb-2 block">
               Teléfono
             </Label>
-            <Input
-              id="phone"
-              value={profile?.phone || ''}
-              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-              placeholder="+51 999 999 999"
-              icon={<Phone className="h-4 w-4" />}
-            />
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                id="phone"
+                value={profile?.phone || ''}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                placeholder="+51 999 999 999"
+                className="pl-10"
+              />
+            </div>
           </div>
 
           <div>
             <Label htmlFor="address" className="text-sm font-medium mb-2 block">
               Dirección
             </Label>
-            <Input
-              id="address"
-              value={profile?.address || ''}
-              onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-              placeholder="Tu dirección"
-              icon={<MapPin className="h-4 w-4" />}
-            />
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                id="address"
+                value={profile?.address || ''}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                placeholder="Tu dirección"
+                className="pl-10"
+              />
+            </div>
           </div>
         </div>
 
@@ -169,13 +178,16 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
               <Label htmlFor="business_name" className="text-sm font-medium mb-2 block">
                 Nombre del negocio
               </Label>
-              <Input
-                id="business_name"
-                value={profile?.business_name || ''}
-                onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
-                placeholder="Nombre de tu negocio"
-                icon={<Building className="h-4 w-4" />}
-              />
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="business_name"
+                  value={profile?.business_name || ''}
+                  onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
+                  placeholder="Nombre de tu negocio"
+                  className="pl-10"
+                />
+              </div>
             </div>
 
             <div>
