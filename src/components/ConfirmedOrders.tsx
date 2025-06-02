@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -6,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Package, User, MessageSquare, Calendar, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type OrderStatus = Database['public']['Enums']['order_status'];
 
 interface Order {
   id: string;
   buyer_id: string;
   total: number;
-  status: string;
+  status: OrderStatus;
   created_at: string;
   delivery_address: string;
   notes: string;
@@ -69,7 +71,13 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
 
       if (error) throw error;
       
-      setOrders(data || []);
+      // Transform the data to match our interface
+      const transformedOrders = data?.map(order => ({
+        ...order,
+        buyer_profile: order.buyer_profiles
+      })) || [];
+      
+      setOrders(transformedOrders);
     } catch (error) {
       console.error('Error fetching confirmed orders:', error);
       toast({
@@ -82,7 +90,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -106,7 +114,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'confirmed': return 'bg-blue-100 text-blue-800';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800';
@@ -115,7 +123,7 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: OrderStatus) => {
     switch (status) {
       case 'confirmed': return 'Confirmado';
       case 'in_progress': return 'En Proceso';
