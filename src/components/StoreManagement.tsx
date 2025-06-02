@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Edit, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ImageUpload from './ImageUpload';
 
 interface Store {
   id: string;
@@ -15,6 +16,7 @@ interface Store {
   logo_url?: string;
   rating: number;
   created_at: string;
+  user_id: string;
 }
 
 interface StoreManagementProps {
@@ -26,21 +28,11 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: store.name,
-    description: store.description || ''
+    description: store.description || '',
+    logo_url: store.logo_url || ''
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  const categories = [
-    'Peluches',
-    'Arte Digital',
-    'Cerámica',
-    'Textil',
-    'Bordados',
-    'Joyería',
-    'Decoración',
-    'Otros'
-  ];
 
   const handleSave = async () => {
     setLoading(true);
@@ -49,7 +41,8 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
         .from('stores')
         .update({
           name: formData.name,
-          description: formData.description
+          description: formData.description,
+          logo_url: formData.logo_url
         })
         .eq('id', store.id)
         .select()
@@ -78,9 +71,14 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
   const handleCancel = () => {
     setFormData({
       name: store.name,
-      description: store.description || ''
+      description: store.description || '',
+      logo_url: store.logo_url || ''
     });
     setIsEditing(false);
+  };
+
+  const handleLogoUpload = (url: string) => {
+    setFormData({ ...formData, logo_url: url });
   };
 
   return (
@@ -120,7 +118,40 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Logo de la tienda */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Logo de la tienda
+            </label>
+            {isEditing ? (
+              <ImageUpload
+                bucket="store-logos"
+                currentImage={formData.logo_url}
+                onImageUploaded={handleLogoUpload}
+                userId={store.user_id}
+                singleImage={true}
+              />
+            ) : (
+              <div className="flex items-center gap-4">
+                {store.logo_url ? (
+                  <img
+                    src={store.logo_url}
+                    alt="Logo de la tienda"
+                    className="w-16 h-16 object-cover rounded-lg border"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-100 rounded-lg border flex items-center justify-center">
+                    <span className="text-gray-400 text-xs">Sin logo</span>
+                  </div>
+                )}
+                <p className="text-gray-600 text-sm">
+                  {store.logo_url ? 'Logo actual' : 'No hay logo configurado'}
+                </p>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Nombre de la tienda
@@ -178,15 +209,6 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
               </span>
             </div>
           </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Configuración adicional</h3>
-        <div className="text-gray-600">
-          <p className="mb-2">• Logo de la tienda: Próximamente disponible</p>
-          <p className="mb-2">• Políticas de envío: Configura en el futuro</p>
-          <p>• Métodos de pago: Se configurarán más adelante</p>
         </div>
       </Card>
     </div>

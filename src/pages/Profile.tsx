@@ -1,0 +1,86 @@
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import ProfileEditor from '@/components/ProfileEditor';
+import { useToast } from '@/hooks/use-toast';
+
+const Profile = () => {
+  const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<'buyer' | 'seller'>('buyer');
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
+
+      setUser(session.user);
+
+      // Obtener el rol del usuario
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      
+      setUserRole(userData.role);
+    } catch (error) {
+      console.error('Error checking user:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la información del usuario.",
+        variant: "destructive",
+      });
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
+          <p className="text-gray-600">
+            Gestiona tu información personal y configuración de cuenta
+          </p>
+        </div>
+
+        <ProfileEditor userId={user.id} userRole={userRole} />
+      </div>
+      
+      <Footer />
+    </div>
+  );
+};
+
+export default Profile;

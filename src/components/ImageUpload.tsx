@@ -7,19 +7,46 @@ import { Upload, X, Image } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ImageUploadProps {
-  bucket: 'store-logos' | 'product-images';
+  bucket: 'store-logos' | 'product-images' | 'user-avatars';
   onImageUploaded: (url: string) => void;
-  currentImages?: string[];
-  maxImages?: number;
+  currentImage?: string;
   userId: string;
+  singleImage?: boolean;
 }
 
-const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 5, userId }: ImageUploadProps) => {
+const ImageUpload = ({ 
+  bucket, 
+  onImageUploaded, 
+  currentImage, 
+  userId, 
+  singleImage = false 
+}: ImageUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const uploadImage = async (file: File) => {
     try {
+      // Verificar tamaño del archivo (5MB máximo)
+      const maxSize = 5 * 1024 * 1024; // 5MB en bytes
+      if (file.size > maxSize) {
+        toast({
+          title: "Archivo demasiado grande",
+          description: "El archivo debe ser menor a 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Verificar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Tipo de archivo inválido",
+          description: "Solo se permiten archivos de imagen",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setUploading(true);
       
       const fileExt = file.name.split('.').pop();
@@ -56,23 +83,16 @@ const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (currentImages.length >= maxImages) {
-        toast({
-          title: "Límite alcanzado",
-          description: `Solo puedes subir máximo ${maxImages} imágenes`,
-          variant: "destructive",
-        });
-        return;
-      }
       uploadImage(file);
     }
   };
 
-  const removeImage = async (imageUrl: string) => {
+  const removeImage = async () => {
+    if (!currentImage) return;
+    
     try {
-      // Extraer el path de la URL
-      const urlParts = imageUrl.split('/');
-      const path = urlParts.slice(-2).join('/'); // userId/filename
+      const urlParts = currentImage.split('/');
+      const path = urlParts.slice(-2).join('/');
       
       const { error } = await supabase.storage
         .from(bucket)
@@ -80,6 +100,7 @@ const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 
 
       if (error) throw error;
       
+      onImageUploaded('');
       toast({
         title: "Imagen eliminada",
         description: "La imagen se eliminó correctamente",
@@ -102,7 +123,7 @@ const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 
             type="file"
             accept="image/*"
             onChange={handleFileSelect}
-            disabled={uploading || currentImages.length >= maxImages}
+            disabled={uploading || (singleImage && !!currentImage)}
             className="hidden"
             id="image-upload"
           />
@@ -110,7 +131,7 @@ const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 
             <Button
               type="button"
               variant="outline"
-              disabled={uploading || currentImages.length >= maxImages}
+              disabled={uploading || (singleImage && !!currentImage)}
               asChild
             >
               <span className="cursor-pointer">
@@ -125,27 +146,23 @@ const ImageUpload = ({ bucket, onImageUploaded, currentImages = [], maxImages = 
           </label>
         </div>
         <span className="text-sm text-gray-500">
-          {currentImages.length}/{maxImages} imágenes
+          Máximo 5MB • Solo 1 imagen
         </span>
       </div>
 
-      {currentImages.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {currentImages.map((imageUrl, index) => (
-            <div key={index} className="relative group">
-              <img
-                src={imageUrl}
-                alt={`Imagen ${index + 1}`}
-                className="w-full h-24 object-cover rounded-lg border"
-              />
-              <button
-                onClick={() => removeImage(imageUrl)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+      {currentImage && (
+        <div className="relative inline-block">
+          <img
+            src={currentImage}
+            alt="Imagen cargada"
+            className="w-32 h-32 object-cover rounded-lg border"
+          />
+          <button
+            onClick={removeImage}
+            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
     </div>
