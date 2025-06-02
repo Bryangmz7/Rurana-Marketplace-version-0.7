@@ -113,7 +113,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
             if (!buyerProfile) {
               const { data: sellerProfile } = await supabase
                 .from('seller_profiles')
-                .select('name, phone, email, business_name as address, avatar_url')
+                .select('name, phone, email, business_name, avatar_url')
                 .eq('user_id', order.buyer_id)
                 .maybeSingle();
               
@@ -122,7 +122,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
                   name: sellerProfile.name,
                   phone: sellerProfile.phone,
                   email: sellerProfile.email,
-                  address: sellerProfile.address,
+                  address: sellerProfile.business_name,
                   avatar_url: sellerProfile.avatar_url
                 };
               }
