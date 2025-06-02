@@ -83,6 +83,41 @@ export type Database = {
         }
         Relationships: []
       }
+      cart_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -132,6 +167,47 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          related_order_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          related_order_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          related_order_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_related_order_id_fkey"
+            columns: ["related_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string
@@ -175,7 +251,9 @@ export type Database = {
         Row: {
           buyer_id: string
           created_at: string
+          delivery_address: string | null
           id: string
+          notes: string | null
           status: Database["public"]["Enums"]["order_status"]
           store_id: string
           total: number
@@ -183,7 +261,9 @@ export type Database = {
         Insert: {
           buyer_id: string
           created_at?: string
+          delivery_address?: string | null
           id?: string
+          notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id: string
           total: number
@@ -191,7 +271,9 @@ export type Database = {
         Update: {
           buyer_id?: string
           created_at?: string
+          delivery_address?: string | null
           id?: string
+          notes?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string
           total?: number

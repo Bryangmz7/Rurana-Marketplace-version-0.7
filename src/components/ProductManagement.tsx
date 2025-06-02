@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, MoreVertical, Edit, Trash2, Package } from 'lucide-react';
+import { Plus, Search, MoreVertical, Edit, Trash2, Package, Clock } from 'lucide-react';
 import ProductForm from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 
@@ -192,7 +191,7 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
-                <Card key={product.id} className="overflow-hidden">
+                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="aspect-square bg-gray-100 relative">
                     {product.image_urls && product.image_urls[0] ? (
                       <img
@@ -205,31 +204,28 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
                         <Package className="h-12 w-12" />
                       </div>
                     )}
-                    <div className="absolute top-2 right-2">
-                      <div className="relative group">
-                        <Button variant="ghost" size="sm" className="bg-white/80 hover:bg-white">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                        <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                          <button 
-                            onClick={() => handleEditProduct(product)}
-                            className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
+                    
+                    {/* Action buttons */}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button 
+                        variant="secondary" 
+                        size="sm"
+                        onClick={() => handleEditProduct(product)}
+                        className="bg-white/90 hover:bg-white"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="bg-red-500/90 hover:bg-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                     
-                    {/* Badge de stock */}
+                    {/* Stock badge */}
                     <div className="absolute top-2 left-2">
                       <span className={`inline-block text-xs px-2 py-1 rounded-full ${
                         product.stock > 10 
@@ -241,15 +237,29 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
                         Stock: {product.stock}
                       </span>
                     </div>
+
+                    {/* Multiple images indicator */}
+                    {product.image_urls && product.image_urls.length > 1 && (
+                      <div className="absolute bottom-2 left-2">
+                        <span className="bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          +{product.image_urls.length - 1} más
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="p-4">
-                    <h3 className="font-semibold text-lg mb-1">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">{product.description}</p>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-lg font-bold text-primary">S/{product.price}</span>
-                      <span className="text-sm text-gray-500">{product.delivery_time} días</span>
+                    <h3 className="font-semibold text-lg mb-1 line-clamp-1">{product.name}</h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                    
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xl font-bold text-primary">S/{product.price}</span>
+                      <span className="text-sm text-gray-500 flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {product.delivery_time} días
+                      </span>
                     </div>
+                    
                     <div className="flex justify-between items-center">
                       <span className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
                         {product.category}

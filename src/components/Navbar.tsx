@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import NotificationCenter from '@/components/NotificationCenter';
 
 interface UserProfile {
   id: string;
@@ -222,14 +222,13 @@ const Navbar = () => {
               </Button>
             )}
             
-            <Button variant="ghost" size="sm">
-              <ShoppingCart className="h-5 w-5" />
-            </Button>
-            
             {loading ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             ) : user ? (
               <div className="flex items-center space-x-2">
+                {/* Notificaciones */}
+                <NotificationCenter userId={user.id} />
+                
                 <span className="text-sm text-gray-600 hidden sm:block">
                   Hola, {userProfile?.name || user.user_metadata?.name || 'Usuario'}
                   {userProfile?.role === 'seller' && sellerProfile && (

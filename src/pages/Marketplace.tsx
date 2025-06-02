@@ -1,23 +1,31 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
-import StoreCard from '@/components/StoreCard';
 import Footer from '@/components/Footer';
+import ProductCard from '@/components/ProductCard';
 import MarketplaceFilters from '@/components/MarketplaceFilters';
+import CartSidebar from '@/components/CartSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, ShoppingCart } from 'lucide-react';
+import { useCart } from '@/components/CartContext';
 
-interface Store {
+interface Product {
   id: string;
   name: string;
   description: string;
-  rating: number;
-  logo_url?: string;
-  user_id: string;
-  product_count?: number;
-  created_at: string;
+  price: number;
+  image_urls: string[];
+  category: string;
+  delivery_time: number;
+  stock: number;
+  store: {
+    id: string;
+    name: string;
+    rating: number;
+  };
 }
 
 interface FilterState {
@@ -27,86 +35,98 @@ interface FilterState {
 }
 
 const Marketplace = () => {
-  const [stores, setStores] = useState<Store[]>([]);
-  const [filteredStores, setFilteredStores] = useState<Store[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [cartOpen, setCartOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     category: 'Todos',
     priceRange: [0, 1000],
     sortBy: 'relevance'
   });
+  const { itemCount } = useCart();
 
   const categories = ['Todos', 'Peluches', 'Arte Digital', 'Cerámica', 'Textil', 'Bordados'];
 
   useEffect(() => {
-    fetchStores();
+    fetchProducts();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [stores, filters, searchQuery]);
+  }, [products, filters, searchQuery]);
 
-  const fetchStores = async () => {
+  const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
-        .from('stores')
+        .from('products')
         .select(`
           *,
-          products(count)
-        `);
-      
+          store:stores(
+            id,
+            name,
+            rating
+          )
+        `)
+        .gt('stock', 0); // Solo mostrar productos con stock
+
       if (error) throw error;
-      
-      // Add product count to each store
-      const storesWithCount = data?.map(store => ({
-        ...store,
-        product_count: store.products?.[0]?.count || 0
-      })) || [];
-      
-      setStores(storesWithCount);
+      setProducts(data || []);
     } catch (error) {
-      console.error('Error fetching stores:', error);
+      console.error('Error fetching products:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const applyFilters = () => {
-    let filtered = [...stores];
+    let filtered = [...products];
 
     // Apply search filter
     if (searchQuery) {
-      filtered = filtered.filter(store =>
-        store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        store.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     // Apply category filter
     if (filters.category !== 'Todos') {
-      // For now, we'll show all stores since we don't have category in stores table
-      // In a real implementation, you'd filter by store category or product categories
+      filtered = filtered.filter(product => product.category === filters.category);
     }
+
+    // Apply price range filter
+    filtered = filtered.filter(product => 
+      product.price >= filters.priceRange[0] && product.price <= filters.priceRange[1]
+    );
 
     // Apply sorting
     switch (filters.sortBy) {
       case 'price_asc':
-        filtered.sort((a, b) => (a.rating || 0) - (b.rating || 0));
+        filtered.sort((a, b) => a.price - b.price);
         break;
       case 'price_desc':
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        filtered.sort((a, b) => b.price - a.price);
         break;
       case 'newest':
         filtered.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
         break;
+      case 'rating':
+        filtered.sort((a, b) => (b.store?.rating || 0) - (a.store?.rating || 0));
+        break;
       default:
-        // relevance - sort by rating
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        // relevance - sort by stock and rating
+        filtered.sort((a, b) => {
+          const scoreA = a.stock + (a.store?.rating || 0) * 10;
+          const scoreB = b.stock + (b.store?.rating || 0) * 10;
+          return scoreB - scoreA;
+        });
     }
 
-    setFilteredStores(filtered);
+    setFilteredProducts(filtered);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -138,6 +158,19 @@ const Marketplace = () => {
     <div className="min-h-screen bg-white">
       <Navbar />
       
+      {/* Floating Cart Button */}
+      <Button
+        onClick={() => setCartOpen(true)}
+        className="fixed bottom-6 right-6 z-40 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all hover:scale-110"
+      >
+        <ShoppingCart className="h-6 w-6" />
+        {itemCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+            {itemCount}
+          </span>
+        )}
+      </Button>
+
       <section className="py-8 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
@@ -145,7 +178,7 @@ const Marketplace = () => {
               Marketplace
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Descubre emprendedores verificados que crean productos únicos y personalizados
+              Descubre productos únicos y personalizados de emprendedores verificados
             </p>
             
             {/* Search Bar */}
@@ -156,7 +189,7 @@ const Marketplace = () => {
                 </div>
                 <Input
                   type="text"
-                  placeholder="Buscar tiendas o productos..."
+                  placeholder="Buscar productos..."
                   className="pl-10 w-full"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -176,7 +209,7 @@ const Marketplace = () => {
                 onFiltersChange={setFilters}
                 categories={categories}
                 onClearFilters={clearFilters}
-                resultCount={filteredStores.length}
+                resultCount={filteredProducts.length}
               />
             </div>
 
@@ -184,7 +217,7 @@ const Marketplace = () => {
             <div className="lg:w-3/4">
               <div className="flex justify-between items-center mb-6">
                 <p className="text-gray-600">
-                  Mostrando {filteredStores.length} de {stores.length} tiendas
+                  Mostrando {filteredProducts.length} de {products.length} productos
                 </p>
                 <select
                   value={filters.sortBy}
@@ -193,31 +226,33 @@ const Marketplace = () => {
                 >
                   <option value="relevance">Relevancia</option>
                   <option value="newest">Más recientes</option>
-                  <option value="price_desc">Mayor calificación</option>
-                  <option value="price_asc">Menor calificación</option>
+                  <option value="price_asc">Precio: Menor a mayor</option>
+                  <option value="price_desc">Precio: Mayor a menor</option>
+                  <option value="rating">Mejor calificados</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredStores.map((store) => (
-                  <StoreCard
-                    key={store.id}
-                    id={store.id}
-                    name={store.name}
-                    description={store.description || ''}
-                    rating={Number(store.rating) || 0}
-                    reviewCount={127} // Mock data for now
-                    location="Perú" // Mock data for now
-                    productCount={store.product_count || 0}
-                    imageUrl="/placeholder-store.jpg"
-                    category="Artesanía" // Mock data for now
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    description={product.description || ''}
+                    price={product.price}
+                    image_urls={product.image_urls || []}
+                    category={product.category || 'Sin categoría'}
+                    delivery_time={product.delivery_time || 7}
+                    stock={product.stock}
+                    store_name={product.store?.name || 'Tienda'}
+                    store_rating={product.store?.rating || 0}
                   />
                 ))}
               </div>
               
-              {filteredStores.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">No se encontraron tiendas que coincidan con tu búsqueda.</p>
+                  <p className="text-gray-500 text-lg">No se encontraron productos que coincidan con tu búsqueda.</p>
                   <Button onClick={clearFilters} variant="outline" className="mt-4">
                     Limpiar filtros
                   </Button>
@@ -228,6 +263,7 @@ const Marketplace = () => {
         </div>
       </section>
       
+      <CartSidebar isOpen={cartOpen} onClose={() => setCartOpen(false)} />
       <Footer />
     </div>
   );
