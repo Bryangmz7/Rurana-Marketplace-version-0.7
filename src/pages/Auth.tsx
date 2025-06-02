@@ -22,23 +22,25 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Check user role and redirect accordingly
-        try {
-          const { data: userProfile } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .maybeSingle();
+        // Esperar un poco para que el trigger cree el perfil
+        setTimeout(async () => {
+          try {
+            const { data: userProfile } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-          if (userProfile?.role === 'seller') {
-            navigate('/seller-dashboard');
-          } else {
+            if (userProfile?.role === 'seller') {
+              navigate('/seller-dashboard');
+            } else {
+              navigate('/marketplace');
+            }
+          } catch (error) {
+            console.log('Profile fetch error:', error);
             navigate('/marketplace');
           }
-        } catch (error) {
-          console.log('Profile fetch error:', error);
-          navigate('/marketplace');
-        }
+        }, 2000);
       }
     };
     checkUser();
@@ -104,7 +106,7 @@ const Auth = () => {
           description: "Has iniciado sesión correctamente.",
         });
 
-        // Wait a moment for auth state to update, then check role
+        // Verificar rol del usuario después de login
         setTimeout(async () => {
           try {
             const { data: userProfile } = await supabase
@@ -161,48 +163,40 @@ const Auth = () => {
           setIsLogin(true);
           
         } else if (data.user) {
-          // User is already confirmed, try to create profile manually
-          console.log('User confirmed, creating profile...');
+          // User is already confirmed
+          console.log('User confirmed, waiting for profile creation...');
           
-          try {
-            // Try to insert user profile
-            const { error: profileError } = await supabase
-              .from('users')
-              .insert([
-                {
-                  id: data.user.id,
-                  name: name.trim(),
-                  email: email.trim(),
-                  role: selectedRole
-                }
-              ]);
-            
-            if (profileError) {
-              console.error('Error creating profile manually:', profileError);
-            }
+          toast({
+            title: "¡Cuenta creada exitosamente!",
+            description: "Tu cuenta ha sido configurada correctamente.",
+          });
 
-            toast({
-              title: "¡Cuenta creada exitosamente!",
-              description: "Tu cuenta ha sido configurada correctamente.",
-            });
+          // Esperar que el trigger cree el perfil del usuario
+          setTimeout(async () => {
+            try {
+              const { data: userProfile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', data.user.id)
+                .maybeSingle();
 
-            // Wait for profile creation, then redirect
-            setTimeout(() => {
+              console.log('Profile created:', userProfile);
+
+              if (userProfile?.role === 'seller' || selectedRole === 'seller') {
+                navigate('/seller-dashboard');
+              } else {
+                navigate('/marketplace');
+              }
+            } catch (err) {
+              console.error('Profile fetch error:', err);
+              // Si no se puede obtener el perfil, redirigir según el rol seleccionado
               if (selectedRole === 'seller') {
                 navigate('/seller-dashboard');
               } else {
                 navigate('/marketplace');
               }
-            }, 1500);
-            
-          } catch (err) {
-            console.error('Profile creation error:', err);
-            toast({
-              title: "Cuenta creada",
-              description: "Tu cuenta fue creada. Inicia sesión para continuar.",
-            });
-            setIsLogin(true);
-          }
+            }
+          }, 2000);
         }
       }
     } catch (error: any) {

@@ -55,12 +55,12 @@ const Navbar = () => {
         setUser(session?.user || null);
         
         if (session?.user) {
-          // Wait a bit for the trigger to create the profile
+          // Esperar un poco más para que el trigger cree el perfil
           setTimeout(() => {
             if (mounted) {
               fetchUserProfile(session.user.id);
             }
-          }, 1000);
+          }, 2000);
         } else {
           setUserProfile(null);
         }
@@ -81,15 +81,32 @@ const Navbar = () => {
     try {
       console.log('Fetching profile for user:', userId);
       
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return;
+      // Intentar obtener el perfil con reintentos
+      let profile = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!profile && attempts < maxAttempts) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching profile:', error);
+        }
+        
+        if (data) {
+          profile = data;
+          break;
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          // Esperar 1 segundo antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
       console.log('Profile fetched:', profile);
@@ -188,6 +205,11 @@ const Navbar = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600 hidden sm:block">
                   Hola, {userProfile?.name || user.user_metadata?.name || 'Usuario'}
+                  {userProfile?.role === 'seller' && (
+                    <span className="ml-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      Vendedor
+                    </span>
+                  )}
                 </span>
                 <Button variant="ghost" size="sm">
                   <User className="h-5 w-5" />

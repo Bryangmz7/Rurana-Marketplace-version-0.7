@@ -44,25 +44,47 @@ const SellerDashboard = () => {
 
       setUser(session.user);
 
-      // Check if user has seller role
-      const { data: userProfile, error: profileError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      // Intentar obtener el perfil del usuario con reintentos
+      let userProfile = null;
+      let attempts = 0;
+      const maxAttempts = 5;
 
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
+      while (!userProfile && attempts < maxAttempts) {
+        console.log(`Intento ${attempts + 1} de obtener perfil de usuario...`);
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+        }
+
+        if (profile) {
+          userProfile = profile;
+          break;
+        }
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          // Esperar 1 segundo antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!userProfile) {
+        console.error('No se pudo obtener el perfil del usuario después de varios intentos');
         toast({
-          title: "Error",
-          description: "No se pudo verificar tu perfil de usuario.",
+          title: "Error de perfil",
+          description: "No se pudo verificar tu perfil. Intenta cerrar sesión y volver a iniciar.",
           variant: "destructive",
         });
-        navigate('/');
         return;
       }
 
-      if (!userProfile || userProfile.role !== 'seller') {
+      if (userProfile.role !== 'seller') {
         toast({
           title: "Acceso denegado",
           description: "Necesitas una cuenta de vendedor para acceder a esta página.",
