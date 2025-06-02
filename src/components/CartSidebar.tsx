@@ -1,13 +1,12 @@
 
 import { useState } from 'react';
-import { X, Plus, Minus, ShoppingBag, CreditCard } from 'lucide-react';
+import { X, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/components/CartContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import CartItem from './CartItem';
+import CheckoutForm from './CheckoutForm';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -17,10 +16,6 @@ interface CartSidebarProps {
 const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
   const { items, updateQuantity, removeFromCart, clearCart, total } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [checkoutData, setCheckoutData] = useState({
-    delivery_address: '',
-    notes: ''
-  });
   const { toast } = useToast();
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
@@ -31,7 +26,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (checkoutData: { delivery_address: string; notes: string }) => {
     if (items.length === 0) {
       toast({
         title: "Carrito vacío",
@@ -144,7 +139,6 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         description: `Se han creado ${Object.keys(itemsByStore).length} pedido(s) exitosamente`,
       });
 
-      setCheckoutData({ delivery_address: '', notes: '' });
       onClose();
     } catch (error: any) {
       console.error('Checkout error:', error);
@@ -191,47 +185,12 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           ) : (
             <div className="space-y-4">
               {items.map((item) => (
-                <div key={item.product.id} className="flex gap-3 p-3 border rounded-lg">
-                  {item.product.image_urls && item.product.image_urls[0] && (
-                    <img
-                      src={item.product.image_urls[0]}
-                      alt={item.product.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm">{item.product.name}</h3>
-                    <p className="text-primary font-semibold">S/{item.product.price}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuantityChange(item.product.id, item.quantity - 1)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center text-sm">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuantityChange(item.product.id, item.quantity + 1)}
-                        className="h-8 w-8 p-0"
-                        disabled={item.quantity >= item.product.stock}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="text-red-600 hover:text-red-700 ml-auto"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                <CartItem
+                  key={item.product.id}
+                  item={item}
+                  onQuantityChange={handleQuantityChange}
+                  onRemove={removeFromCart}
+                />
               ))}
             </div>
           )}
@@ -239,44 +198,11 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
         {/* Checkout Section */}
         {items.length > 0 && (
-          <div className="border-t p-4 space-y-4">
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Total:</span>
-              <span className="text-primary">S/{total.toFixed(2)}</span>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="delivery_address">Dirección de entrega *</Label>
-                <Input
-                  id="delivery_address"
-                  placeholder="Ingresa tu dirección completa"
-                  value={checkoutData.delivery_address}
-                  onChange={(e) => setCheckoutData(prev => ({ ...prev, delivery_address: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="notes">Notas adicionales</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Instrucciones especiales (opcional)"
-                  value={checkoutData.notes}
-                  onChange={(e) => setCheckoutData(prev => ({ ...prev, notes: e.target.value }))}
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            <Button 
-              onClick={handleCheckout} 
-              className="w-full" 
-              disabled={isCheckingOut}
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              {isCheckingOut ? 'Procesando...' : 'Realizar Pedido'}
-            </Button>
-          </div>
+          <CheckoutForm
+            total={total}
+            onCheckout={handleCheckout}
+            isProcessing={isCheckingOut}
+          />
         )}
       </div>
     </>

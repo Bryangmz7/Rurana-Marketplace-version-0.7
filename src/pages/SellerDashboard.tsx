@@ -8,7 +8,7 @@ import StoreNavigation from '@/components/StoreNavigation';
 import StoreOverview from '@/components/StoreOverview';
 import ProductManagement from '@/components/ProductManagement';
 import StoreManagement from '@/components/StoreManagement';
-import CustomerManagement from '@/components/CustomerManagement';
+import OrderManagement from '@/components/OrderManagement';
 import { useToast } from '@/hooks/use-toast';
 
 interface Store {
@@ -134,7 +134,7 @@ const SellerDashboard = () => {
       case 'store':
         return <StoreManagement store={store} onStoreUpdated={handleStoreUpdated} />;
       case 'customers':
-        return <CustomerManagement storeId={store.id} />;
+        return <OrderManagement storeId={store.id} />;
       default:
         return <StoreOverview storeId={store.id} />;
     }
