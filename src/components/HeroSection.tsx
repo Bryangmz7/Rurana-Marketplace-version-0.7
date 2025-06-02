@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { Sparkles, Zap, Clock } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 const HeroSection = () => {
   return (

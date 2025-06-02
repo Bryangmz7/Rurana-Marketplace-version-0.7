@@ -2,7 +2,6 @@
 import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
-import MarketplaceSection from '@/components/MarketplaceSection';
 import CustomizationPreview from '@/components/CustomizationPreview';
 import Footer from '@/components/Footer';
 
@@ -11,9 +10,8 @@ const Index = () => {
     <div className="min-h-screen bg-white">
       <Navbar />
       <HeroSection />
-      <FeaturesSection />
-      <MarketplaceSection />
       <CustomizationPreview />
+      <FeaturesSection />
       <Footer />
     </div>
   );
