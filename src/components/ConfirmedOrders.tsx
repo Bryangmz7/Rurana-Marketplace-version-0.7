@@ -122,6 +122,32 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
     }
   };
 
+  const openWhatsApp = (order: Order) => {
+    if (!order.buyer_profile.phone) {
+      toast({
+        title: "Número no disponible",
+        description: "El cliente no ha proporcionado un número de teléfono",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Limpiar el número de teléfono (quitar espacios y caracteres especiales)
+    const cleanPhone = order.buyer_profile.phone.replace(/[^\d]/g, '');
+    
+    // Asegurar que el número tenga el código de país peruano (+51)
+    let whatsappNumber = cleanPhone;
+    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
+      whatsappNumber = '51' + whatsappNumber;
+    }
+
+    // Crear el mensaje para WhatsApp
+    const message = `Hola ${order.buyer_profile.name}, este es el vendedor de tu pedido #${order.id.slice(0, 8)}. Tu pedido por S/${order.total} está confirmado y en proceso. ¿Hay algo específico que necesites saber sobre la entrega?`;
+    
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case 'confirmed': return 'bg-blue-100 text-blue-800';
@@ -180,6 +206,9 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
                 <div>
                   <h4 className="font-semibold">{order.buyer_profile?.name}</h4>
                   <p className="text-sm text-gray-600">{order.buyer_profile?.email}</p>
+                  {order.buyer_profile?.phone && (
+                    <p className="text-sm text-gray-500">Tel: {order.buyer_profile.phone}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -189,13 +218,23 @@ const ConfirmedOrders = ({ storeId }: ConfirmedOrdersProps) => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="text-green-600 border-green-600 hover:bg-green-50"
+                  onClick={() => openWhatsApp(order)}
+                  disabled={!order.buyer_profile.phone}
+                  className="text-green-600 border-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MessageSquare className="h-4 w-4 mr-1" />
                   WhatsApp
                 </Button>
               </div>
             </div>
+
+            {!order.buyer_profile.phone && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ El cliente no ha proporcionado un número de teléfono. No se puede contactar por WhatsApp.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="flex items-center gap-2 text-sm text-gray-600">

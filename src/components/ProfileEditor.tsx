@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Phone, MapPin, Building } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ImageUpload from './ImageUpload';
 
@@ -79,6 +79,43 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
     setProfile({ ...profile, avatar_url: url });
   };
 
+  const formatPhoneNumber = (value: string) => {
+    // Limpiar el número (solo dígitos)
+    const cleaned = value.replace(/\D/g, '');
+    
+    // Formatear el número peruano
+    if (cleaned.length <= 9) {
+      return cleaned.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3').trim();
+    }
+    return cleaned;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setProfile({ ...profile, phone: formatted });
+  };
+
+  const testWhatsApp = () => {
+    if (!profile?.phone) {
+      toast({
+        title: "Número requerido",
+        description: "Primero debes agregar tu número de teléfono",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanPhone = profile.phone.replace(/[^\d]/g, '');
+    let whatsappNumber = cleanPhone;
+    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
+      whatsappNumber = '51' + whatsappNumber;
+    }
+
+    const testMessage = "Hola, este es un mensaje de prueba desde mi perfil.";
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(testMessage)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -111,19 +148,20 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="name" className="text-sm font-medium mb-2 block">
-              Nombre completo
+              Nombre completo *
             </Label>
             <Input
               id="name"
               value={profile?.name || ''}
               onChange={(e) => setProfile({ ...profile, name: e.target.value })}
               placeholder="Tu nombre completo"
+              required
             />
           </div>
 
           <div>
             <Label htmlFor="email" className="text-sm font-medium mb-2 block">
-              Email
+              Email *
             </Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -134,23 +172,61 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
                 onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 placeholder="tu@email.com"
                 className="pl-10"
+                required
               />
             </div>
           </div>
+        </div>
 
-          <div>
-            <Label htmlFor="phone" className="text-sm font-medium mb-2 block">
-              Teléfono
-            </Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                id="phone"
-                value={profile?.phone || ''}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                placeholder="+51 999 999 999"
-                className="pl-10"
-              />
+        {/* Información de contacto */}
+        <div className="space-y-4">
+          <h4 className="text-md font-medium text-gray-900 border-b pb-2">
+            Información de Contacto
+          </h4>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div className="flex items-start gap-3">
+              <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <h5 className="font-medium text-blue-900 mb-1">WhatsApp para comunicación</h5>
+                <p className="text-sm text-blue-700 mb-3">
+                  Tu número de WhatsApp será usado para que los {userRole === 'seller' ? 'clientes' : 'vendedores'} puedan contactarte sobre los pedidos.
+                </p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="phone" className="text-sm font-medium mb-2 block text-blue-900">
+                      Número de WhatsApp *
+                    </Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="phone"
+                          value={profile?.phone || ''}
+                          onChange={handlePhoneChange}
+                          placeholder="999 999 999"
+                          className="pl-10"
+                          maxLength={11}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={testWhatsApp}
+                        disabled={!profile?.phone}
+                        className="text-green-600 border-green-600 hover:bg-green-50"
+                      >
+                        Probar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Formato: 999 999 999 (sin código de país)
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -174,9 +250,13 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
         {/* Campos específicos para sellers */}
         {userRole === 'seller' && (
           <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900 border-b pb-2">
+              Información del Negocio
+            </h4>
+            
             <div>
               <Label htmlFor="business_name" className="text-sm font-medium mb-2 block">
-                Nombre del negocio
+                Nombre del negocio *
               </Label>
               <div className="relative">
                 <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -186,6 +266,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
                   onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
                   placeholder="Nombre de tu negocio"
                   className="pl-10"
+                  required
                 />
               </div>
             </div>
