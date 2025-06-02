@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingBag, Store, Eye, EyeOff } from 'lucide-react';
+import { ShoppingBag, Store, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -22,7 +22,23 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate('/marketplace');
+        // Check user role and redirect accordingly
+        try {
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (userProfile?.role === 'seller') {
+            navigate('/seller-dashboard');
+          } else {
+            navigate('/marketplace');
+          }
+        } catch (error) {
+          console.log('Profile fetch error:', error);
+          navigate('/marketplace');
+        }
       }
     };
     checkUser();
@@ -34,7 +50,16 @@ const Auth = () => {
     if (!email || !password) {
       toast({
         title: "Error",
-        description: "Por favor completa todos los campos",
+        description: "Por favor completa todos los campos requeridos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "La contraseña debe tener al menos 6 caracteres",
         variant: "destructive",
       });
       return;
@@ -43,16 +68,16 @@ const Auth = () => {
     if (!isLogin && !selectedRole) {
       toast({
         title: "Error",
-        description: "Selecciona si quieres comprar o vender",
+        description: "Por favor selecciona si quieres comprar o vender",
         variant: "destructive",
       });
       return;
     }
 
-    if (!isLogin && !name) {
+    if (!isLogin && !name?.trim()) {
       toast({
         title: "Error",
-        description: "Por favor ingresa tu nombre",
+        description: "Por favor ingresa tu nombre completo",
         variant: "destructive",
       });
       return;
@@ -62,8 +87,9 @@ const Auth = () => {
 
     try {
       if (isLogin) {
+        // Login flow
         const { error, data } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         
@@ -71,37 +97,44 @@ const Auth = () => {
           throw error;
         }
         
+        console.log('Login successful:', data);
+        
         toast({
-          title: "¡Bienvenido!",
+          title: "¡Bienvenido de nuevo!",
           description: "Has iniciado sesión correctamente.",
         });
 
-        // Check user role and redirect accordingly
-        try {
-          const { data: userProfile } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', data.user.id)
-            .maybeSingle();
+        // Wait a moment for auth state to update, then check role
+        setTimeout(async () => {
+          try {
+            const { data: userProfile } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', data.user.id)
+              .maybeSingle();
 
-          if (userProfile?.role === 'seller') {
-            navigate('/seller-dashboard');
-          } else {
+            console.log('User profile after login:', userProfile);
+
+            if (userProfile?.role === 'seller') {
+              navigate('/seller-dashboard');
+            } else {
+              navigate('/marketplace');
+            }
+          } catch (profileError) {
+            console.log('Profile fetch error after login:', profileError);
             navigate('/marketplace');
           }
-        } catch (profileError) {
-          console.log('Profile fetch error:', profileError);
-          navigate('/marketplace');
-        }
+        }, 1000);
+
       } else {
         // Sign up flow
         const { error, data } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/marketplace`,
             data: {
-              name: name,
+              name: name.trim(),
               role: selectedRole
             }
           }
@@ -111,43 +144,64 @@ const Auth = () => {
           throw error;
         }
         
-        // Create user profile immediately after signup
+        console.log('Signup response:', data);
+        
         if (data.user && !data.user.email_confirmed_at) {
+          // User needs to confirm email
           toast({
-            title: "¡Cuenta creada!",
-            description: "Revisa tu email para confirmar tu cuenta.",
+            title: "¡Registro exitoso!",
+            description: "Te hemos enviado un email de confirmación. Por favor revisa tu bandeja de entrada.",
           });
+          
+          // Reset form
+          setEmail('');
+          setPassword('');
+          setName('');
+          setSelectedRole(null);
+          setIsLogin(true);
+          
         } else if (data.user) {
-          // User is already confirmed, create profile
+          // User is already confirmed, try to create profile manually
+          console.log('User confirmed, creating profile...');
+          
           try {
+            // Try to insert user profile
             const { error: profileError } = await supabase
               .from('users')
               .insert([
                 {
                   id: data.user.id,
-                  name: name,
-                  email: email,
+                  name: name.trim(),
+                  email: email.trim(),
                   role: selectedRole
                 }
               ]);
             
             if (profileError) {
-              console.error('Error creating profile:', profileError);
+              console.error('Error creating profile manually:', profileError);
             }
 
             toast({
-              title: "¡Cuenta creada!",
-              description: "Tu cuenta ha sido creada exitosamente.",
+              title: "¡Cuenta creada exitosamente!",
+              description: "Tu cuenta ha sido configurada correctamente.",
             });
 
-            if (selectedRole === 'seller') {
-              navigate('/seller-dashboard');
-            } else {
-              navigate('/marketplace');
-            }
+            // Wait for profile creation, then redirect
+            setTimeout(() => {
+              if (selectedRole === 'seller') {
+                navigate('/seller-dashboard');
+              } else {
+                navigate('/marketplace');
+              }
+            }, 1500);
+            
           } catch (err) {
             console.error('Profile creation error:', err);
-            navigate('/marketplace');
+            toast({
+              title: "Cuenta creada",
+              description: "Tu cuenta fue creada. Inicia sesión para continuar.",
+            });
+            setIsLogin(true);
           }
         }
       }
@@ -155,14 +209,18 @@ const Auth = () => {
       console.error('Auth error:', error);
       let errorMessage = "Ocurrió un error durante la autenticación.";
       
-      if (error.message.includes('Invalid login credentials')) {
+      if (error.message?.includes('Invalid login credentials')) {
         errorMessage = "Credenciales incorrectas. Verifica tu email y contraseña.";
-      } else if (error.message.includes('User already registered')) {
+      } else if (error.message?.includes('User already registered')) {
         errorMessage = "Este email ya está registrado. Intenta iniciar sesión.";
-      } else if (error.message.includes('Password should be at least')) {
+      } else if (error.message?.includes('Password should be at least')) {
         errorMessage = "La contraseña debe tener al menos 6 caracteres.";
-      } else if (error.message.includes('Unable to validate email address')) {
+      } else if (error.message?.includes('Unable to validate email address')) {
         errorMessage = "Email inválido. Verifica el formato.";
+      } else if (error.message?.includes('Signup is disabled')) {
+        errorMessage = "El registro está temporalmente deshabilitado.";
+      } else if (error.message?.includes('Email rate limit exceeded')) {
+        errorMessage = "Demasiados intentos. Espera unos minutos antes de volver a intentar.";
       }
       
       toast({
@@ -176,64 +234,68 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-8">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-100 flex items-center justify-center px-4 py-8">
+      <div className="max-w-md w-full bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-gray-200/50">
         <div className="text-center mb-8">
-          <div className="mb-4">
-            <span className="text-3xl font-bold text-primary">RURANA</span>
-            <span className="ml-2 text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-full">
-              AI Powered
+          <div className="mb-6">
+            <span className="text-4xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+              RURANA
             </span>
+            <div className="mt-2">
+              <span className="text-xs bg-gradient-to-r from-primary to-purple-600 text-white px-3 py-1 rounded-full font-medium">
+                AI Powered Marketplace
+              </span>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">
             {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-lg">
             {isLogin ? 'Accede a tu cuenta de RURANA' : 'Únete a la comunidad RURANA'}
           </p>
         </div>
 
         {!isLogin && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              ¿Qué quieres hacer?
+          <div className="mb-8">
+            <label className="block text-sm font-semibold text-gray-700 mb-4">
+              ¿Qué quieres hacer en RURANA?
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
                 onClick={() => setSelectedRole('buyer')}
-                className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
+                className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
                   selectedRole === 'buyer'
-                    ? 'border-primary bg-primary-50 text-primary ring-2 ring-primary/20'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-primary bg-gradient-to-br from-primary/10 to-primary/5 text-primary ring-2 ring-primary/20 transform scale-105'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:scale-102'
                 }`}
               >
-                <ShoppingBag className="h-8 w-8 mx-auto mb-2" />
-                <div className="font-semibold">Comprar</div>
-                <div className="text-xs text-gray-500 mt-1">Buscar productos únicos</div>
+                <ShoppingBag className="h-10 w-10 mx-auto mb-3" />
+                <div className="font-bold text-lg">Comprar</div>
+                <div className="text-sm text-gray-500 mt-2">Descubrir productos únicos</div>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedRole('seller')}
-                className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
+                className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
                   selectedRole === 'seller'
-                    ? 'border-primary bg-primary-50 text-primary ring-2 ring-primary/20'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-primary bg-gradient-to-br from-primary/10 to-primary/5 text-primary ring-2 ring-primary/20 transform scale-105'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:scale-102'
                 }`}
               >
-                <Store className="h-8 w-8 mx-auto mb-2" />
-                <div className="font-semibold">Vender</div>
-                <div className="text-xs text-gray-500 mt-1">Crear mi tienda</div>
+                <Store className="h-10 w-10 mx-auto mb-3" />
+                <div className="font-bold text-lg">Vender</div>
+                <div className="text-sm text-gray-500 mt-2">Crear mi tienda online</div>
               </button>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-5">
+        <form onSubmit={handleAuth} className="space-y-6">
           {!isLogin && (
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre completo
+              <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-3">
+                Nombre completo *
               </label>
               <Input
                 id="name"
@@ -242,14 +304,14 @@ const Auth = () => {
                 onChange={(e) => setName(e.target.value)}
                 required={!isLogin}
                 placeholder="Tu nombre completo"
-                className="h-12 text-base rounded-xl border-gray-300 focus:border-primary focus:ring-primary"
+                className="h-14 text-base rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-primary transition-all duration-200"
               />
             </div>
           )}
           
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Correo electrónico
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-3">
+              Correo electrónico *
             </label>
             <Input
               id="email"
@@ -258,13 +320,13 @@ const Auth = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="tu@email.com"
-              className="h-12 text-base rounded-xl border-gray-300 focus:border-primary focus:ring-primary"
+              className="h-14 text-base rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-primary transition-all duration-200"
             />
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Contraseña
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
+              Contraseña *
             </label>
             <div className="relative">
               <Input
@@ -275,34 +337,34 @@ const Auth = () => {
                 required
                 placeholder="••••••••"
                 minLength={6}
-                className="h-12 text-base rounded-xl border-gray-300 focus:border-primary focus:ring-primary pr-12"
+                className="h-14 text-base rounded-xl border-2 border-gray-200 focus:border-primary focus:ring-primary pr-14 transition-all duration-200"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-gray-50 rounded-r-xl transition-colors"
               >
                 {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
+                  <EyeOff className="h-6 w-6 text-gray-400" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
+                  <Eye className="h-6 w-6 text-gray-400" />
                 )}
               </button>
             </div>
             {!isLogin && (
-              <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+              <p className="text-sm text-gray-500 mt-2">Mínimo 6 caracteres</p>
             )}
           </div>
 
           <Button
             type="submit"
-            className="w-full bg-primary hover:bg-primary-600 text-white py-3 h-12 rounded-xl text-base font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary-600 hover:to-purple-700 text-white py-4 h-14 rounded-xl text-lg font-bold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             disabled={loading}
           >
             {loading ? (
               <div className="flex items-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Procesando...
+                <Loader2 className="animate-spin h-6 w-6 mr-3" />
+                {isLogin ? 'Iniciando sesión...' : 'Creando cuenta...'}
               </div>
             ) : (
               isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'
@@ -310,7 +372,7 @@ const Auth = () => {
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-8 text-center">
           <button
             onClick={() => {
               setIsLogin(!isLogin);
@@ -319,7 +381,7 @@ const Auth = () => {
               setEmail('');
               setPassword('');
             }}
-            className="text-primary hover:text-primary-600 font-medium transition-colors duration-200"
+            className="text-primary hover:text-primary-600 font-semibold transition-colors duration-200 text-lg"
           >
             {isLogin 
               ? '¿No tienes cuenta? Regístrate aquí' 
@@ -327,6 +389,14 @@ const Auth = () => {
             }
           </button>
         </div>
+
+        {!isLogin && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              Al registrarte, aceptas nuestros términos de servicio y política de privacidad
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

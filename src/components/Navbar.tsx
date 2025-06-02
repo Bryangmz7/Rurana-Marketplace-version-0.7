@@ -22,9 +22,14 @@ const Navbar = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let mounted = true;
+
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
         setUser(session?.user || null);
         
         if (session?.user) {
@@ -33,7 +38,9 @@ const Navbar = () => {
       } catch (error) {
         console.error('Error getting session:', error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     
@@ -41,22 +48,39 @@ const Navbar = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
+        console.log('Auth state change:', event, session?.user?.id);
+        
         setUser(session?.user || null);
         
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
+          // Wait a bit for the trigger to create the profile
+          setTimeout(() => {
+            if (mounted) {
+              fetchUserProfile(session.user.id);
+            }
+          }, 1000);
         } else {
           setUserProfile(null);
         }
-        setLoading(false);
+        
+        if (mounted) {
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
+      
       const { data: profile, error } = await supabase
         .from('users')
         .select('*')
@@ -68,6 +92,7 @@ const Navbar = () => {
         return;
       }
       
+      console.log('Profile fetched:', profile);
       setUserProfile(profile);
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -88,6 +113,8 @@ const Navbar = () => {
           title: "Sesión cerrada",
           description: "Has cerrado sesión correctamente",
         });
+        setUser(null);
+        setUserProfile(null);
         navigate('/');
       }
     } catch (error) {
@@ -108,14 +135,16 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
             <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
-              <span className="text-2xl font-bold text-primary">RURANA</span>
-              <span className="ml-2 text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-full">
+              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                RURANA
+              </span>
+              <span className="ml-2 text-xs bg-gradient-to-r from-primary to-purple-600 text-white px-2 py-1 rounded-full">
                 AI Powered
               </span>
             </div>
@@ -129,7 +158,7 @@ const Navbar = () => {
               </div>
               <Input
                 type="text"
-                placeholder="Buscar productos..."
+                placeholder="Buscar productos únicos..."
                 className="pl-10 w-full rounded-full border-gray-300 focus:border-primary focus:ring-primary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

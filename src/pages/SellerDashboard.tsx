@@ -29,48 +29,74 @@ const SellerDashboard = () => {
   }, []);
 
   const checkUserAndStore = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate('/auth');
-      return;
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
 
-    setUser(session.user);
+      setUser(session.user);
 
-    // Check if user has seller role
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
+      // Check if user has seller role
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-    if (userProfile?.role !== 'seller') {
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        toast({
+          title: "Error",
+          description: "No se pudo verificar tu perfil de usuario.",
+          variant: "destructive",
+        });
+        navigate('/');
+        return;
+      }
+
+      if (!userProfile || userProfile.role !== 'seller') {
+        toast({
+          title: "Acceso denegado",
+          description: "Necesitas una cuenta de vendedor para acceder a esta página.",
+          variant: "destructive",
+        });
+        navigate('/');
+        return;
+      }
+
+      // Check if user has a store
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (storeError) {
+        console.error('Error fetching store:', storeError);
+      }
+
+      setStore(storeData);
+    } catch (error) {
+      console.error('Error in checkUserAndStore:', error);
       toast({
-        title: "Acceso denegado",
-        description: "Necesitas una cuenta de vendedor para acceder.",
+        title: "Error",
+        description: "Ocurrió un error al cargar la página.",
         variant: "destructive",
       });
       navigate('/');
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    // Check if user has a store
-    const { data: storeData } = await supabase
-      .from('stores')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .single();
-
-    setStore(storeData);
-    setLoading(false);
   };
 
   const handleStoreCreated = (newStore: Store) => {
     setStore(newStore);
     toast({
-      title: "¡Tienda creada!",
-      description: "Tu tienda ha sido configurada correctamente.",
+      title: "¡Tienda creada exitosamente!",
+      description: "Tu tienda ha sido configurada correctamente. Ahora puedes comenzar a agregar productos.",
     });
   };
 
@@ -79,14 +105,17 @@ const SellerDashboard = () => {
       <div className="min-h-screen bg-white">
         <Navbar />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando tu panel de vendedor...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
