@@ -1,9 +1,9 @@
+
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/components/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CartItem from './CartItem';
@@ -15,14 +15,15 @@ interface CartSidebarProps {
 }
 
 const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
-  const { items, clearCart } = useCart();
-  const { user } = useAuth();
+  const { items, clearCart, updateQuantity, removeFromCart } = useCart();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
 
   const handleCheckout = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
     if (!user) {
       toast({
         title: "Inicia sesión",
@@ -53,18 +54,12 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
       // Si no existe perfil de buyer, crearlo con datos del usuario
       if (!buyerProfile) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('name, email')
-          .eq('id', user.id)
-          .single();
-
         const { data: newBuyerProfile, error: profileError } = await supabase
           .from('buyer_profiles')
           .insert({
             user_id: user.id,
-            name: userData?.name || 'Usuario',
-            email: userData?.email || '',
+            name: user.user_metadata?.name || 'Usuario',
+            email: user.email || '',
             phone: null,
             address: deliveryAddress || null
           })
@@ -89,14 +84,14 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
       }
 
       // Agrupar items por tienda
-      const itemsByStore = items.reduce((acc, item) => {
+      const itemsByStore = items.reduce((acc: Record<string, typeof items>, item) => {
         const storeId = item.product.store_id;
         if (!acc[storeId]) {
           acc[storeId] = [];
         }
         acc[storeId].push(item);
         return acc;
-      }, {} as Record<string, typeof items>);
+      }, {});
 
       // Crear un pedido por cada tienda
       const orderPromises = Object.entries(itemsByStore).map(async ([storeId, storeItems]) => {
@@ -138,7 +133,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
       await Promise.all(orderPromises);
 
       // Limpiar carrito
-      clearCart();
+      await clearCart();
       setDeliveryAddress('');
       setOrderNotes('');
 
@@ -183,7 +178,12 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <CartItem key={item.product.id} item={item} />
+              <CartItem 
+                key={item.product.id} 
+                item={item}
+                onQuantityChange={updateQuantity}
+                onRemove={removeFromCart}
+              />
             ))}
           </div>
         )}
