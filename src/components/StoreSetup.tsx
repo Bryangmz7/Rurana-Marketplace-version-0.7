@@ -27,6 +27,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   });
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
   const { toast } = useToast();
 
   const categories = [
@@ -46,30 +47,62 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
   const fetchDepartments = async () => {
     try {
+      console.log('Fetching departments...');
+      setDepartmentsLoading(true);
+      
       const { data, error } = await supabase
         .from('departments')
         .select('id, name')
         .order('name');
 
-      if (error) throw error;
+      console.log('Departments response:', { data, error });
+
+      if (error) {
+        console.error('Error fetching departments:', error);
+        throw error;
+      }
+      
       setDepartments(data || []);
+      console.log('Departments loaded:', data?.length || 0);
     } catch (error) {
       console.error('Error fetching departments:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los departamentos",
+        description: "No se pudieron cargar los departamentos. Verifique la conexión a la base de datos.",
         variant: "destructive",
       });
+    } finally {
+      setDepartmentsLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name || !formData.description || !formData.category || !formData.department_id) {
+      toast({
+        title: "Campos requeridos",
+        description: "Por favor completa todos los campos obligatorios",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       // Obtener el nombre del departamento seleccionado
       const selectedDepartment = departments.find(d => d.id === formData.department_id);
+      
+      console.log('Creating store with data:', {
+        user_id: userId,
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        department: selectedDepartment?.name || null,
+        department_id: formData.department_id,
+        rating: 0
+      });
       
       const { data, error } = await supabase
         .from('stores')
@@ -80,21 +113,30 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             description: formData.description,
             category: formData.category,
             department: selectedDepartment?.name || null,
-            department_id: formData.department_id || null,
+            department_id: formData.department_id,
             rating: 0
           }
         ])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating store:', error);
+        throw error;
+      }
 
+      console.log('Store created successfully:', data);
       onStoreCreated(data);
+      
+      toast({
+        title: "¡Tienda creada!",
+        description: "Tu tienda se ha configurado correctamente",
+      });
     } catch (error: any) {
       console.error('Error creating store:', error);
       toast({
         title: "Error",
-        description: "No se pudo crear la tienda. Inténtalo de nuevo.",
+        description: error.message || "No se pudo crear la tienda. Inténtalo de nuevo.",
         variant: "destructive",
       });
     } finally {
@@ -104,6 +146,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
+    console.log(`Updated ${field}:`, value);
   };
 
   return (
@@ -170,9 +213,17 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Departamento *
               </label>
-              <Select value={formData.department_id} onValueChange={(value) => handleInputChange('department_id', value)}>
+              <Select 
+                value={formData.department_id} 
+                onValueChange={(value) => handleInputChange('department_id', value)}
+                disabled={departmentsLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un departamento" />
+                  <SelectValue placeholder={
+                    departmentsLoading ? "Cargando..." : 
+                    departments.length === 0 ? "No hay departamentos" : 
+                    "Selecciona un departamento"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((department) => (
@@ -182,14 +233,27 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                   ))}
                 </SelectContent>
               </Select>
+              {departments.length === 0 && !departmentsLoading && (
+                <p className="text-sm text-red-600 mt-1">
+                  No se pudieron cargar los departamentos. 
+                  <Button 
+                    type="button" 
+                    variant="link" 
+                    className="p-0 h-auto text-sm"
+                    onClick={fetchDepartments}
+                  >
+                    Reintentar
+                  </Button>
+                </p>
+              )}
             </div>
           </div>
 
           <div className="flex gap-4 pt-6">
             <Button
               type="submit"
-              className="flex-1 bg-primary hover:bg-primary-600"
-              disabled={loading}
+              className="flex-1 bg-primary hover:bg-primary/90"
+              disabled={loading || departmentsLoading}
             >
               {loading ? 'Creando tienda...' : 'Crear mi tienda'}
             </Button>

@@ -45,15 +45,19 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
     setIsProcessing(true);
 
     try {
-      // Verificar si el usuario tiene un perfil de buyer, si no, crearlo
+      console.log('Starting checkout process for user:', user.id);
+
+      // Verificar/crear perfil de buyer con sincronización mejorada
       let { data: buyerProfile } = await supabase
         .from('buyer_profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Si no existe perfil de buyer, crearlo con datos del usuario
       if (!buyerProfile) {
+        console.log('Creating new buyer profile...');
+        
+        // Crear perfil de buyer con datos completos
         const { data: newBuyerProfile, error: profileError } = await supabase
           .from('buyer_profiles')
           .insert({
@@ -61,28 +65,47 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
             name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuario',
             email: user.email || '',
             phone: user.user_metadata?.phone || null,
-            address: deliveryAddress || null
+            address: deliveryAddress || user.user_metadata?.address || null
           })
           .select()
           .single();
 
         if (profileError) {
+          console.error('Error creating buyer profile:', profileError);
           throw profileError;
         }
 
         buyerProfile = newBuyerProfile;
-      } else if (deliveryAddress && deliveryAddress !== buyerProfile.address) {
-        // Actualizar la dirección si es diferente
-        const { error: updateError } = await supabase
-          .from('buyer_profiles')
-          .update({ 
-            address: deliveryAddress,
-            phone: user.user_metadata?.phone || buyerProfile.phone
-          })
-          .eq('user_id', user.id);
+        console.log('Buyer profile created:', buyerProfile);
+      } else {
+        console.log('Updating existing buyer profile...');
+        
+        // Actualizar perfil existente si hay nueva información
+        const updateData: any = {};
+        
+        if (deliveryAddress && deliveryAddress !== buyerProfile.address) {
+          updateData.address = deliveryAddress;
+        }
+        
+        if (user.user_metadata?.phone && user.user_metadata.phone !== buyerProfile.phone) {
+          updateData.phone = user.user_metadata.phone;
+        }
+        
+        if (user.user_metadata?.name && user.user_metadata.name !== buyerProfile.name) {
+          updateData.name = user.user_metadata.name;
+        }
 
-        if (updateError) {
-          console.error('Error updating buyer address:', updateError);
+        if (Object.keys(updateData).length > 0) {
+          const { error: updateError } = await supabase
+            .from('buyer_profiles')
+            .update(updateData)
+            .eq('user_id', user.id);
+
+          if (updateError) {
+            console.error('Error updating buyer profile:', updateError);
+          } else {
+            console.log('Buyer profile updated with:', updateData);
+          }
         }
       }
 
@@ -96,9 +119,13 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         return acc;
       }, {});
 
+      console.log('Creating orders for stores:', Object.keys(itemsByStore));
+
       // Crear un pedido por cada tienda
       const orderPromises = Object.entries(itemsByStore).map(async ([storeId, storeItems]) => {
         const total = storeItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+        console.log(`Creating order for store ${storeId} with total: ${total}`);
 
         // Crear el pedido
         const { data: order, error: orderError } = await supabase
@@ -114,7 +141,12 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           .select()
           .single();
 
-        if (orderError) throw orderError;
+        if (orderError) {
+          console.error('Error creating order:', orderError);
+          throw orderError;
+        }
+
+        console.log('Order created:', order);
 
         // Crear los items del pedido
         const orderItems = storeItems.map(item => ({
@@ -128,8 +160,12 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           .from('order_items')
           .insert(orderItems);
 
-        if (itemsError) throw itemsError;
+        if (itemsError) {
+          console.error('Error creating order items:', itemsError);
+          throw itemsError;
+        }
 
+        console.log('Order items created for order:', order.id);
         return order;
       });
 
@@ -139,6 +175,8 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
       await clearCart();
       setDeliveryAddress('');
       setOrderNotes('');
+
+      console.log('Checkout completed successfully');
 
       toast({
         title: "¡Pedido realizado!",
@@ -166,61 +204,70 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         isOpen ? 'translate-x-0' : 'translate-x-full'
       } z-50`}
     >
-      <div className="p-6">
-        <div className="flex items-center justify-between">
+      <div className="p-6 h-full flex flex-col">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold">Carrito</h2>
           <Button variant="ghost" onClick={onClose}>
             <X className="h-6 w-6" />
           </Button>
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="mb-4" />
 
         {items.length === 0 ? (
-          <p className="text-gray-500">Tu carrito está vacío.</p>
-        ) : (
-          <div className="space-y-4">
-            {items.map((item) => (
-              <CartItem 
-                key={item.product.id} 
-                item={item}
-                onQuantityChange={updateQuantity}
-                onRemove={removeFromCart}
-              />
-            ))}
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-500">Tu carrito está vacío.</p>
           </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+              {items.map((item) => (
+                <CartItem 
+                  key={item.product.id} 
+                  item={item}
+                  onQuantityChange={updateQuantity}
+                  onRemove={removeFromCart}
+                />
+              ))}
+            </div>
+
+            <Separator className="mb-4" />
+
+            <div className="space-y-3 mb-4">
+              <h3 className="text-lg font-semibold">Detalles de entrega</h3>
+              <Input
+                type="text"
+                placeholder="Dirección de entrega"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                className="w-full"
+              />
+              <Input
+                type="text"
+                placeholder="Notas del pedido (opcional)"
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            <Separator className="mb-4" />
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold">Total: S/{total.toFixed(2)}</h3>
+              </div>
+              <Button
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                size="lg"
+              >
+                {isProcessing ? 'Procesando...' : 'Realizar Pedido'}
+              </Button>
+            </div>
+          </>
         )}
-
-        <Separator className="my-4" />
-
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Detalles de entrega</h3>
-          <Input
-            type="text"
-            placeholder="Dirección de entrega"
-            value={deliveryAddress}
-            onChange={(e) => setDeliveryAddress(e.target.value)}
-          />
-          <Input
-            type="text"
-            placeholder="Notas del pedido (opcional)"
-            value={orderNotes}
-            onChange={(e) => setOrderNotes(e.target.value)}
-          />
-        </div>
-
-        <Separator className="my-4" />
-
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-semibold">Total: S/{total.toFixed(2)}</h3>
-          <Button
-            onClick={handleCheckout}
-            disabled={isProcessing}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isProcessing ? 'Procesando...' : 'Checkout'}
-          </Button>
-        </div>
       </div>
     </div>
   );
