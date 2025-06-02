@@ -17,23 +17,23 @@ const Navbar = () => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      
-      if (session?.user) {
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
         
-        setUserProfile(profile);
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -44,36 +44,59 @@ const Navbar = () => {
         setUser(session?.user || null);
         
         if (session?.user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          setUserProfile(profile);
+          await fetchUserProfile(session.user.id);
         } else {
           setUserProfile(null);
         }
+        setLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+      
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  };
+
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo cerrar sesión",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sesión cerrada",
+          description: "Has cerrado sesión correctamente",
+        });
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
       toast({
         title: "Error",
-        description: "No se pudo cerrar sesión",
+        description: "Ocurrió un error al cerrar sesión",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Sesión cerrada",
-        description: "Has cerrado sesión correctamente",
-      });
-      navigate('/');
     }
   };
 
@@ -107,7 +130,7 @@ const Navbar = () => {
               <Input
                 type="text"
                 placeholder="Buscar productos..."
-                className="pl-10 w-full"
+                className="pl-10 w-full rounded-full border-gray-300 focus:border-primary focus:ring-primary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -120,7 +143,7 @@ const Navbar = () => {
               Marketplace
             </Button>
             
-            {userProfile?.role === 'seller' && (
+            {!loading && user && userProfile?.role === 'seller' && (
               <Button variant="ghost" size="sm" onClick={() => navigate('/seller-dashboard')}>
                 Mi Tienda
               </Button>
@@ -130,9 +153,13 @@ const Navbar = () => {
               <ShoppingCart className="h-5 w-5" />
             </Button>
             
-            {user ? (
+            {loading ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            ) : user ? (
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Hola, {userProfile?.name}</span>
+                <span className="text-sm text-gray-600 hidden sm:block">
+                  Hola, {userProfile?.name || user.user_metadata?.name || 'Usuario'}
+                </span>
                 <Button variant="ghost" size="sm">
                   <User className="h-5 w-5" />
                 </Button>
@@ -143,7 +170,7 @@ const Navbar = () => {
             ) : (
               <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
                 <User className="h-5 w-5" />
-                Iniciar Sesión
+                <span className="ml-1 hidden sm:inline">Iniciar Sesión</span>
               </Button>
             )}
           </div>
