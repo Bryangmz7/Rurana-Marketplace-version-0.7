@@ -13,9 +13,18 @@ interface UserProfile {
   role: 'buyer' | 'seller' | 'admin';
 }
 
+interface SellerProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  business_name: string;
+  verified: boolean;
+}
+
 const Navbar = () => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -55,7 +64,6 @@ const Navbar = () => {
         setUser(session?.user || null);
         
         if (session?.user) {
-          // Esperar un poco más para que el trigger cree el perfil
           setTimeout(() => {
             if (mounted) {
               fetchUserProfile(session.user.id);
@@ -63,6 +71,7 @@ const Navbar = () => {
           }, 2000);
         } else {
           setUserProfile(null);
+          setSellerProfile(null);
         }
         
         if (mounted) {
@@ -81,12 +90,12 @@ const Navbar = () => {
     try {
       console.log('Fetching profile for user:', userId);
       
-      // Intentar obtener el perfil con reintentos
-      let profile = null;
+      // Obtener perfil general del usuario
+      let userProfileData = null;
       let attempts = 0;
       const maxAttempts = 5;
 
-      while (!profile && attempts < maxAttempts) {
+      while (!userProfileData && attempts < maxAttempts) {
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -94,23 +103,38 @@ const Navbar = () => {
           .maybeSingle();
         
         if (error) {
-          console.error('Error fetching profile:', error);
+          console.error('Error fetching user profile:', error);
         }
         
         if (data) {
-          profile = data;
+          userProfileData = data;
           break;
         }
         
         attempts++;
         if (attempts < maxAttempts) {
-          // Esperar 1 segundo antes del siguiente intento
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
-      console.log('Profile fetched:', profile);
-      setUserProfile(profile);
+      console.log('User profile fetched:', userProfileData);
+      setUserProfile(userProfileData);
+
+      // Si es vendedor, obtener también su perfil de vendedor
+      if (userProfileData?.role === 'seller') {
+        const { data: sellerData, error: sellerError } = await supabase
+          .from('seller_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (sellerError) {
+          console.error('Error fetching seller profile:', sellerError);
+        } else {
+          console.log('Seller profile fetched:', sellerData);
+          setSellerProfile(sellerData);
+        }
+      }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
     }
@@ -132,6 +156,7 @@ const Navbar = () => {
         });
         setUser(null);
         setUserProfile(null);
+        setSellerProfile(null);
         navigate('/');
       }
     } catch (error) {
@@ -189,7 +214,7 @@ const Navbar = () => {
               Marketplace
             </Button>
             
-            {!loading && user && userProfile?.role === 'seller' && (
+            {!loading && user && userProfile?.role === 'seller' && sellerProfile && (
               <Button variant="ghost" size="sm" onClick={() => navigate('/seller-dashboard')}>
                 Mi Tienda
               </Button>
@@ -205,10 +230,17 @@ const Navbar = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600 hidden sm:block">
                   Hola, {userProfile?.name || user.user_metadata?.name || 'Usuario'}
-                  {userProfile?.role === 'seller' && (
-                    <span className="ml-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      Vendedor
-                    </span>
+                  {userProfile?.role === 'seller' && sellerProfile && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        Vendedor
+                      </span>
+                      {sellerProfile.verified && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          Verificado
+                        </span>
+                      )}
+                    </div>
                   )}
                 </span>
                 <Button variant="ghost" size="sm">

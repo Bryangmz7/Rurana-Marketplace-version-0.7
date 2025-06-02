@@ -21,10 +21,21 @@ interface Store {
   created_at: string;
 }
 
+interface SellerProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  business_name: string;
+  business_description?: string;
+  verified: boolean;
+}
+
 const SellerDashboard = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -44,47 +55,25 @@ const SellerDashboard = () => {
 
       setUser(session.user);
 
-      // Intentar obtener el perfil del usuario con reintentos
-      let userProfile = null;
-      let attempts = 0;
-      const maxAttempts = 5;
+      // Verificar si el usuario tiene perfil de vendedor
+      const { data: sellerProfileData, error: sellerError } = await supabase
+        .from('seller_profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
 
-      while (!userProfile && attempts < maxAttempts) {
-        console.log(`Intento ${attempts + 1} de obtener perfil de usuario...`);
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('Error fetching user profile:', profileError);
-        }
-
-        if (profile) {
-          userProfile = profile;
-          break;
-        }
-
-        attempts++;
-        if (attempts < maxAttempts) {
-          // Esperar 1 segundo antes del siguiente intento
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      if (!userProfile) {
-        console.error('No se pudo obtener el perfil del usuario después de varios intentos');
+      if (sellerError) {
+        console.error('Error fetching seller profile:', sellerError);
         toast({
-          title: "Error de perfil",
-          description: "No se pudo verificar tu perfil. Intenta cerrar sesión y volver a iniciar.",
+          title: "Error",
+          description: "No se pudo verificar tu perfil de vendedor.",
           variant: "destructive",
         });
+        navigate('/');
         return;
       }
 
-      if (userProfile.role !== 'seller') {
+      if (!sellerProfileData) {
         toast({
           title: "Acceso denegado",
           description: "Necesitas una cuenta de vendedor para acceder a esta página.",
@@ -94,7 +83,9 @@ const SellerDashboard = () => {
         return;
       }
 
-      // Check if user has a store
+      setSellerProfile(sellerProfileData);
+
+      // Verificar si el vendedor tiene una tienda
       const { data: storeData, error: storeError } = await supabase
         .from('stores')
         .select('*')
@@ -169,6 +160,19 @@ const SellerDashboard = () => {
       
       {!store ? (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Bienvenido, {sellerProfile?.name}
+            </h1>
+            <p className="text-gray-600">
+              Negocio: {sellerProfile?.business_name}
+              {sellerProfile?.verified && (
+                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Verificado
+                </span>
+              )}
+            </p>
+          </div>
           <StoreSetup userId={user.id} onStoreCreated={handleStoreCreated} />
         </div>
       ) : (
