@@ -129,7 +129,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
         console.log(`Creating order for store ${storeId} with total: ${total}`);
 
-        // Crear el pedido con la nueva estructura (sin order_number ya que se genera automáticamente)
+        // Crear el pedido - order_number se genera automáticamente
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({

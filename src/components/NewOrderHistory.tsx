@@ -88,7 +88,8 @@ const NewOrderHistory = () => {
 
       const ordersWithCorrectTypes = (data || []).map(order => ({
         ...order,
-        status: order.status as Order['status']
+        status: order.status as Order['status'],
+        store: Array.isArray(order.store) ? order.store[0] : order.store
       }));
 
       setOrders(ordersWithCorrectTypes);

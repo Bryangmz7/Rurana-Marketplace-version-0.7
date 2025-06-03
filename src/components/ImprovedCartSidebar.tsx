@@ -134,7 +134,7 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
 
         console.log(`Creating order for store ${storeId} with total: ${total}`);
 
-        // Crear el pedido mejorado con la nueva estructura (sin order_number)
+        // Crear el pedido mejorado - order_number se genera automáticamente
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({

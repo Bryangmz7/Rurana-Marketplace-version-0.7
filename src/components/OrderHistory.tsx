@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +12,7 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   delivery_address: string | null;
-  notes: string | null;
+  customer_notes: string | null;
   created_at: string;
   store: {
     id: string;
@@ -112,7 +111,14 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      const ordersWithCorrectTypes = (data || []).map(order => ({
+        ...order,
+        status: order.status as Order['status'],
+        store: Array.isArray(order.store) ? order.store[0] : order.store
+      }));
+      
+      setOrders(ordersWithCorrectTypes);
     } catch (error) {
       console.error('Error fetching order history:', error);
       toast({
@@ -283,10 +289,10 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
                   </div>
                 )}
 
-                {order.notes && (
+                {order.customer_notes && (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <h4 className="font-medium mb-2 text-gray-900">Notas del pedido:</h4>
-                    <p className="text-gray-700 text-sm">{order.notes}</p>
+                    <p className="text-gray-700 text-sm">{order.customer_notes}</p>
                   </div>
                 )}
 
