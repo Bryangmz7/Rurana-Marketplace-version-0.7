@@ -41,42 +41,13 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     'Otros'
   ];
 
-  // Departamentos por defecto con IDs válidos
-  const defaultDepartments = [
-    { id: 'amazonas', name: 'Amazonas' },
-    { id: 'ancash', name: 'Áncash' },
-    { id: 'apurimac', name: 'Apurímac' },
-    { id: 'arequipa', name: 'Arequipa' },
-    { id: 'ayacucho', name: 'Ayacucho' },
-    { id: 'cajamarca', name: 'Cajamarca' },
-    { id: 'callao', name: 'Callao' },
-    { id: 'cusco', name: 'Cusco' },
-    { id: 'huancavelica', name: 'Huancavelica' },
-    { id: 'huanuco', name: 'Huánuco' },
-    { id: 'ica', name: 'Ica' },
-    { id: 'junin', name: 'Junín' },
-    { id: 'la-libertad', name: 'La Libertad' },
-    { id: 'lambayeque', name: 'Lambayeque' },
-    { id: 'lima', name: 'Lima' },
-    { id: 'loreto', name: 'Loreto' },
-    { id: 'madre-de-dios', name: 'Madre de Dios' },
-    { id: 'moquegua', name: 'Moquegua' },
-    { id: 'pasco', name: 'Pasco' },
-    { id: 'piura', name: 'Piura' },
-    { id: 'puno', name: 'Puno' },
-    { id: 'san-martin', name: 'San Martín' },
-    { id: 'tacna', name: 'Tacna' },
-    { id: 'tumbes', name: 'Tumbes' },
-    { id: 'ucayali', name: 'Ucayali' }
-  ];
-
   useEffect(() => {
     fetchDepartments();
   }, []);
 
   const fetchDepartments = async () => {
     try {
-      console.log('Fetching departments...');
+      console.log('Fetching departments from database...');
       setDepartmentsLoading(true);
       
       const { data, error } = await supabase
@@ -88,26 +59,34 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
       if (error) {
         console.error('Error fetching departments:', error);
-        // Usar departamentos por defecto en caso de error
-        setDepartments(defaultDepartments);
-        console.log('Using default departments due to error');
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los departamentos de la base de datos",
+          variant: "destructive",
+        });
+        setDepartments([]);
         return;
       }
       
       if (!data || data.length === 0) {
-        console.log('No departments found in database, using default departments');
-        setDepartments(defaultDepartments);
+        console.log('No departments found in database');
+        toast({
+          title: "Información",
+          description: "No se encontraron departamentos en la base de datos",
+        });
+        setDepartments([]);
       } else {
-        setDepartments(data);
         console.log('Departments loaded from database:', data.length);
+        setDepartments(data);
       }
     } catch (error) {
       console.error('Error in fetchDepartments:', error);
-      setDepartments(defaultDepartments);
       toast({
-        title: "Información",
-        description: "Se están usando departamentos por defecto.",
+        title: "Error",
+        description: "Error al conectar con la base de datos",
+        variant: "destructive",
       });
+      setDepartments([]);
     } finally {
       setDepartmentsLoading(false);
     }
@@ -116,10 +95,22 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.description || !formData.category || !formData.department_id) {
+    if (!formData.name || !formData.description || !formData.category) {
       toast({
         title: "Campos requeridos",
-        description: "Por favor completa todos los campos obligatorios",
+        description: "Por favor completa el nombre, descripción y categoría",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Si no hay departamentos disponibles, permitir crear la tienda sin departamento
+    if (departments.length === 0) {
+      console.log('No departments available, creating store without department');
+    } else if (!formData.department_id) {
+      toast({
+        title: "Campo requerido",
+        description: "Por favor selecciona un departamento",
         variant: "destructive",
       });
       return;
@@ -128,7 +119,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     setLoading(true);
 
     try {
-      // Obtener el nombre del departamento seleccionado
+      // Obtener el nombre del departamento seleccionado (si existe)
       const selectedDepartment = departments.find(d => d.id === formData.department_id);
       
       console.log('Creating store with data:', {
@@ -137,7 +128,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
         description: formData.description,
         category: formData.category,
         department: selectedDepartment?.name || null,
-        department_id: formData.department_id,
+        department_id: formData.department_id || null,
         rating: 0
       });
       
@@ -150,7 +141,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             description: formData.description,
             category: formData.category,
             department: selectedDepartment?.name || null,
-            department_id: formData.department_id,
+            department_id: formData.department_id || null,
             rating: 0
           }
         ])
@@ -248,17 +239,17 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Departamento *
+                Departamento {departments.length > 0 ? '*' : '(Opcional)'}
               </label>
               <Select 
                 value={formData.department_id} 
                 onValueChange={(value) => handleInputChange('department_id', value)}
-                disabled={departmentsLoading}
+                disabled={departmentsLoading || departments.length === 0}
               >
                 <SelectTrigger className="bg-white">
                   <SelectValue placeholder={
-                    departmentsLoading ? "Cargando..." : 
-                    departments.length === 0 ? "No hay departamentos" : 
+                    departmentsLoading ? "Cargando departamentos..." : 
+                    departments.length === 0 ? "No hay departamentos disponibles" : 
                     "Selecciona un departamento"
                   } />
                 </SelectTrigger>
@@ -272,7 +263,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
               </Select>
               {departments.length === 0 && !departmentsLoading && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Usando departamentos por defecto
+                  Los departamentos no están disponibles actualmente
                 </p>
               )}
             </div>
