@@ -76,7 +76,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
         }
         
         acc[buyerId].total_orders += 1;
-        acc[buyerId].total_spent += parseFloat(order.total || '0');
+        acc[buyerId].total_spent += parseFloat(String(order.total || 0));
         
         // Mantener la fecha más reciente
         if (new Date(order.created_at) > new Date(acc[buyerId].last_order_date)) {
@@ -110,7 +110,12 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
               .eq('id', buyerId)
               .single();
             
-            userInfo = userData;
+            userInfo = {
+              name: userData?.name || 'Cliente sin nombre',
+              email: userData?.email || 'Email no disponible',
+              phone: 'Teléfono no disponible',
+              address: 'Dirección no disponible'
+            };
           }
 
           const stats = customerStats[buyerId];
