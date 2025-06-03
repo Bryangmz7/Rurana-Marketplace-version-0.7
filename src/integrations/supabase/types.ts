@@ -163,13 +163,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "messages_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "messages_receiver_id_fkey"
             columns: ["receiver_id"]
             isOneToOne: false
@@ -216,36 +209,40 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "notifications_related_order_id_fkey"
-            columns: ["related_order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       order_items: {
         Row: {
+          created_at: string
+          customization_details: Json | null
           id: string
           order_id: string
           product_id: string
           quantity: number
+          special_instructions: string | null
+          total_price: number
           unit_price: number
         }
         Insert: {
+          created_at?: string
+          customization_details?: Json | null
           id?: string
           order_id: string
           product_id: string
           quantity?: number
+          special_instructions?: string | null
+          total_price: number
           unit_price: number
         }
         Update: {
+          created_at?: string
+          customization_details?: Json | null
           id?: string
           order_id?: string
           product_id?: string
           quantity?: number
+          special_instructions?: string | null
+          total_price?: number
           unit_price?: number
         }
         Relationships: [
@@ -268,85 +265,127 @@ export type Database = {
       orders: {
         Row: {
           buyer_id: string
+          confirmed_at: string | null
           created_at: string
+          customer_notes: string | null
+          delivered_at: string | null
           delivery_address: string | null
+          delivery_notes: string | null
+          delivery_phone: string | null
+          estimated_delivery_date: string | null
           id: string
-          notes: string | null
-          status: Database["public"]["Enums"]["order_status"]
+          order_number: string
+          payment_status: string
+          shipped_at: string | null
+          shipping_cost: number
+          status: string
           store_id: string
+          subtotal: number
           total: number
+          tracking_number: string | null
+          updated_at: string
         }
         Insert: {
           buyer_id: string
+          confirmed_at?: string | null
           created_at?: string
+          customer_notes?: string | null
+          delivered_at?: string | null
           delivery_address?: string | null
+          delivery_notes?: string | null
+          delivery_phone?: string | null
+          estimated_delivery_date?: string | null
           id?: string
-          notes?: string | null
-          status?: Database["public"]["Enums"]["order_status"]
+          order_number: string
+          payment_status?: string
+          shipped_at?: string | null
+          shipping_cost?: number
+          status?: string
           store_id: string
-          total: number
+          subtotal?: number
+          total?: number
+          tracking_number?: string | null
+          updated_at?: string
         }
         Update: {
           buyer_id?: string
+          confirmed_at?: string | null
           created_at?: string
+          customer_notes?: string | null
+          delivered_at?: string | null
           delivery_address?: string | null
+          delivery_notes?: string | null
+          delivery_phone?: string | null
+          estimated_delivery_date?: string | null
           id?: string
-          notes?: string | null
-          status?: Database["public"]["Enums"]["order_status"]
+          order_number?: string
+          payment_status?: string
+          shipped_at?: string | null
+          shipping_cost?: number
+          status?: string
           store_id?: string
+          subtotal?: number
           total?: number
+          tracking_number?: string | null
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "orders_buyer_id_fkey"
-            columns: ["buyer_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       products: {
         Row: {
+          base_price: number | null
           category: string | null
           created_at: string
+          customization_options: Json | null
           delivery_time: number | null
           description: string | null
           id: string
           image_urls: string[] | null
+          is_customizable: boolean | null
+          max_order_quantity: number | null
+          min_order_quantity: number | null
           name: string
+          preparation_time_days: number | null
           price: number
+          requires_approval: boolean | null
           stock: number
           store_id: string
         }
         Insert: {
+          base_price?: number | null
           category?: string | null
           created_at?: string
+          customization_options?: Json | null
           delivery_time?: number | null
           description?: string | null
           id?: string
           image_urls?: string[] | null
+          is_customizable?: boolean | null
+          max_order_quantity?: number | null
+          min_order_quantity?: number | null
           name: string
+          preparation_time_days?: number | null
           price: number
+          requires_approval?: boolean | null
           stock?: number
           store_id: string
         }
         Update: {
+          base_price?: number | null
           category?: string | null
           created_at?: string
+          customization_options?: Json | null
           delivery_time?: number | null
           description?: string | null
           id?: string
           image_urls?: string[] | null
+          is_customizable?: boolean | null
+          max_order_quantity?: number | null
+          min_order_quantity?: number | null
           name?: string
+          preparation_time_days?: number | null
           price?: number
+          requires_approval?: boolean | null
           stock?: number
           store_id?: string
         }
@@ -488,7 +527,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_order_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       ai_request_status: "pending" | "processing" | "completed" | "failed"
