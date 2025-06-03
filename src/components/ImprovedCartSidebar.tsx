@@ -134,7 +134,7 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
 
         console.log(`Creating order for store ${storeId} with total: ${total}`);
 
-        // Crear el pedido mejorado
+        // Crear el pedido mejorado con la nueva estructura
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -159,7 +159,7 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
 
         console.log('Order created:', order);
 
-        // Crear los items del pedido
+        // Crear los items del pedido con total_price requerido
         const orderItems = storeItems.map(item => ({
           order_id: order.id,
           product_id: item.product.id,

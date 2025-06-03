@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,9 +15,9 @@ interface Order {
   id: string;
   buyer_id: string;
   total: number;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
   delivery_address: string | null;
-  notes: string | null;
+  customer_notes: string | null;
   created_at: string;
   order_items: Array<{
     id: string;
@@ -88,7 +89,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
           )
         `)
         .eq('store_id', storeId)
-        .in('status', ['confirmed', 'in_progress', 'completed'])
+        .in('status', ['confirmed', 'in_progress', 'shipped', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -247,7 +248,8 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
     switch (status) {
       case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+      case 'shipped': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -257,7 +259,8 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
     switch (status) {
       case 'confirmed': return <Package className="h-4 w-4" />;
       case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'shipped': return <Package className="h-4 w-4" />;
+      case 'delivered': return <CheckCircle className="h-4 w-4" />;
       case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Package className="h-4 w-4" />;
     }
@@ -372,9 +375,9 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
                       ))}
                     </div>
                     
-                    {order.notes && (
+                    {order.customer_notes && (
                       <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                        <strong>Nota:</strong> {order.notes}
+                        <strong>Nota:</strong> {order.customer_notes}
                       </div>
                     )}
                   </div>

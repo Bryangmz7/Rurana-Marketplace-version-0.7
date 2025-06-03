@@ -12,9 +12,9 @@ interface Order {
   id: string;
   buyer_id: string;
   total: number;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
   delivery_address: string | null;
-  notes: string | null;
+  customer_notes: string | null;
   created_at: string;
   order_items: Array<{
     id: string;
@@ -60,7 +60,7 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
           )
         `)
         .eq('store_id', storeId)
-        .in('status', ['confirmed', 'in_progress', 'completed'])
+        .in('status', ['confirmed', 'in_progress', 'shipped', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -161,7 +161,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
     switch (status) {
       case 'confirmed': return 'bg-blue-100 text-blue-800';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
+      case 'shipped': return 'bg-purple-100 text-purple-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -171,7 +172,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
     switch (status) {
       case 'confirmed': return <Package className="h-4 w-4" />;
       case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'shipped': return <Package className="h-4 w-4" />;
+      case 'delivered': return <CheckCircle className="h-4 w-4" />;
       case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Package className="h-4 w-4" />;
     }
@@ -181,7 +183,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
     switch (status) {
       case 'confirmed': return 'Confirmado';
       case 'in_progress': return 'En Progreso';
-      case 'completed': return 'Completado';
+      case 'shipped': return 'Enviado';
+      case 'delivered': return 'Entregado';
       case 'cancelled': return 'Cancelado';
       default: return status;
     }
@@ -328,10 +331,10 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                       ))}
                     </div>
 
-                    {order.notes && (
+                    {order.customer_notes && (
                       <div className="mt-4">
                         <h5 className="font-medium mb-1">Notas del pedido:</h5>
-                        <p className="text-sm text-gray-600 bg-yellow-50 p-2 rounded border">{order.notes}</p>
+                        <p className="text-sm text-gray-600 bg-yellow-50 p-2 rounded border">{order.customer_notes}</p>
                       </div>
                     )}
 
@@ -350,7 +353,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                         <SelectContent>
                           <SelectItem value="confirmed">Confirmado</SelectItem>
                           <SelectItem value="in_progress">En Progreso</SelectItem>
-                          <SelectItem value="completed">Completado</SelectItem>
+                          <SelectItem value="shipped">Enviado</SelectItem>
+                          <SelectItem value="delivered">Entregado</SelectItem>
                           <SelectItem value="cancelled">Cancelado</SelectItem>
                         </SelectContent>
                       </Select>

@@ -110,8 +110,15 @@ const CustomProductForm = ({ storeId, onProductCreated, onCancel }: CustomProduc
     setLoading(true);
 
     try {
+      // Convertir las opciones de personalización al formato JSON correcto
       const customizationData = {
-        options: customizationOptions,
+        options: customizationOptions.map(option => ({
+          type: option.type,
+          label: option.label,
+          options: option.options || [],
+          required: option.required || false,
+          priceModifier: option.priceModifier || 0
+        })),
         text_options: {
           max_length: 100,
           fonts: ['Arial', 'Times New Roman', 'Helvetica']
@@ -231,10 +238,10 @@ const CustomProductForm = ({ storeId, onProductCreated, onCancel }: CustomProduc
               <Label className="mb-4 block">Imágenes del producto</Label>
               <ImageUpload
                 bucket="product-images"
-                currentImages={formData.image_urls}
-                onImagesUploaded={handleImageUpload}
+                currentImage={formData.image_urls[0]}
+                onImageUploaded={(url) => handleImageUpload([url])}
                 userId={storeId}
-                maxImages={5}
+                className="w-full"
               />
             </div>
           </CardContent>

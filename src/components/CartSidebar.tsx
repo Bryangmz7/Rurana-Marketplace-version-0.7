@@ -123,20 +123,24 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
       // Crear un pedido por cada tienda
       const orderPromises = Object.entries(itemsByStore).map(async ([storeId, storeItems]) => {
-        const total = storeItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        const subtotal = storeItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        const shippingCost = 10; // Costo fijo de envío
+        const total = subtotal + shippingCost;
 
         console.log(`Creating order for store ${storeId} with total: ${total}`);
 
-        // Crear el pedido
+        // Crear el pedido con la nueva estructura
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
             buyer_id: user.id,
             store_id: storeId,
+            subtotal,
+            shipping_cost: shippingCost,
             total,
             status: 'pending',
             delivery_address: deliveryAddress || null,
-            notes: orderNotes || null,
+            customer_notes: orderNotes || null,
           })
           .select()
           .single();
@@ -148,12 +152,13 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
         console.log('Order created:', order);
 
-        // Crear los items del pedido
+        // Crear los items del pedido con total_price requerido
         const orderItems = storeItems.map(item => ({
           order_id: order.id,
           product_id: item.product.id,
           quantity: item.quantity,
           unit_price: item.product.price,
+          total_price: item.quantity * item.product.price,
         }));
 
         const { error: itemsError } = await supabase
