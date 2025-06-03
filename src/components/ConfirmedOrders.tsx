@@ -102,12 +102,14 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
 
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: buyerProfile || { name: 'Usuario', phone: null }
             };
           } catch (error) {
             console.error('Error fetching buyer profile:', error);
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: { name: 'Usuario', phone: null }
             };
           }

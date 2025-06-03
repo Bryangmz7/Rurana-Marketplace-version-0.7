@@ -1,87 +1,53 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  MessageCircle, 
-  Package, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  User, 
-  Phone, 
-  MapPin, 
-  Calendar,
-  Truck,
-  Eye,
-  Edit2,
-  Trash2,
-  RefreshCw
-} from 'lucide-react';
-
-interface Order {
-  id: string;
-  order_number: string;
-  buyer_id: string;
-  store_id: string;
-  total: number;
-  subtotal: number;
-  shipping_cost: number;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
-  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
-  delivery_address: string | null;
-  delivery_phone: string | null;
-  delivery_notes: string | null;
-  customer_notes: string | null;
-  estimated_delivery_date: string | null;
-  tracking_number: string | null;
-  created_at: string;
-  updated_at: string;
-  confirmed_at: string | null;
-  shipped_at: string | null;
-  delivered_at: string | null;
-  order_items: OrderItem[];
-  buyer_profile?: BuyerProfile;
-}
-
-interface OrderItem {
-  id: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  customization_details: any;
-  special_instructions: string | null;
-  product: {
-    id: string;
-    name: string;
-    image_urls: string[] | null;
-    is_customizable: boolean;
-  };
-}
-
-interface BuyerProfile {
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  avatar_url: string | null;
-}
+import { Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, Eye, MessageCircle } from 'lucide-react';
 
 interface NewOrderManagementProps {
   storeId: string;
 }
 
+interface Order {
+  id: string;
+  order_number: string;
+  buyer_id: string;
+  total: number;
+  subtotal: number;
+  shipping_cost: number;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'cancelled' | 'shipped' | 'delivered';
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  customer_notes: string | null;
+  created_at: string;
+  order_items: Array<{
+    id: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    product: {
+      id: string;
+      name: string;
+      image_urls: string[] | null;
+    };
+  }>;
+  buyer_profile?: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    avatar_url: string | null;
+  };
+}
+
 const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'in_progress'>('pending');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -100,7 +66,7 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
         },
         (payload) => {
           console.log('Order change detected:', payload);
-          fetchOrders();
+          fetchOrders(); // Recargar pedidos cuando hay cambios
         }
       )
       .subscribe();
@@ -119,12 +85,14 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
         .select(`
           *,
           order_items (
-            *,
+            id,
+            quantity,
+            unit_price,
+            total_price,
             product:products (
               id,
               name,
-              image_urls,
-              is_customizable
+              image_urls
             )
           )
         `)
@@ -138,16 +106,18 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
 
       console.log('Orders fetched:', data?.length || 0);
 
-      // Obtener información de los compradores
+      // Obtener información completa de los compradores
       const ordersWithBuyers = await Promise.all(
         (data || []).map(async (order) => {
           try {
+            // Intentar obtener buyer_profile primero
             let { data: buyerProfile } = await supabase
               .from('buyer_profiles')
               .select('name, phone, email, address, avatar_url')
               .eq('user_id', order.buyer_id)
               .maybeSingle();
 
+            // Si no hay buyer_profile, intentar seller_profile
             if (!buyerProfile) {
               const { data: sellerProfile } = await supabase
                 .from('seller_profiles')
@@ -166,6 +136,7 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
               }
             }
 
+            // Si no hay perfil, obtener datos básicos del usuario
             if (!buyerProfile) {
               const { data: userData } = await supabase
                 .from('users')
@@ -186,6 +157,7 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
 
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: buyerProfile || { 
                 name: 'Usuario', 
                 phone: null, 
@@ -198,6 +170,7 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
             console.error('Error fetching buyer profile for order:', order.id, error);
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: { 
                 name: 'Usuario', 
                 phone: null, 

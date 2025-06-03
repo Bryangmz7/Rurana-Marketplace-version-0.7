@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -101,8 +100,8 @@ const CustomProductForm = ({ storeId, onProductCreated, onCancel }: CustomProduc
     }));
   };
 
-  const handleImageUpload = (urls: string[]) => {
-    setFormData(prev => ({ ...prev, image_urls: urls }));
+  const handleImageUpload = (url: string) => {
+    setFormData(prev => ({ ...prev, image_urls: [url] }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -239,9 +238,8 @@ const CustomProductForm = ({ storeId, onProductCreated, onCancel }: CustomProduc
               <ImageUpload
                 bucket="product-images"
                 currentImage={formData.image_urls[0]}
-                onImageUploaded={(url) => handleImageUpload([url])}
+                onImageUploaded={handleImageUpload}
                 userId={storeId}
-                className="w-full"
               />
             </div>
           </CardContent>

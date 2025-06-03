@@ -150,6 +150,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
 
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: buyerProfile || { 
                 name: 'Usuario', 
                 phone: null, 
@@ -162,6 +163,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
             console.error('Error fetching buyer profile for order:', order.id, error);
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: { 
                 name: 'Usuario', 
                 phone: null, 
