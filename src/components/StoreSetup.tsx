@@ -41,6 +41,35 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     'Otros'
   ];
 
+  // Departamentos por defecto con IDs válidos
+  const defaultDepartments = [
+    { id: 'amazonas', name: 'Amazonas' },
+    { id: 'ancash', name: 'Áncash' },
+    { id: 'apurimac', name: 'Apurímac' },
+    { id: 'arequipa', name: 'Arequipa' },
+    { id: 'ayacucho', name: 'Ayacucho' },
+    { id: 'cajamarca', name: 'Cajamarca' },
+    { id: 'callao', name: 'Callao' },
+    { id: 'cusco', name: 'Cusco' },
+    { id: 'huancavelica', name: 'Huancavelica' },
+    { id: 'huanuco', name: 'Huánuco' },
+    { id: 'ica', name: 'Ica' },
+    { id: 'junin', name: 'Junín' },
+    { id: 'la-libertad', name: 'La Libertad' },
+    { id: 'lambayeque', name: 'Lambayeque' },
+    { id: 'lima', name: 'Lima' },
+    { id: 'loreto', name: 'Loreto' },
+    { id: 'madre-de-dios', name: 'Madre de Dios' },
+    { id: 'moquegua', name: 'Moquegua' },
+    { id: 'pasco', name: 'Pasco' },
+    { id: 'piura', name: 'Piura' },
+    { id: 'puno', name: 'Puno' },
+    { id: 'san-martin', name: 'San Martín' },
+    { id: 'tacna', name: 'Tacna' },
+    { id: 'tumbes', name: 'Tumbes' },
+    { id: 'ucayali', name: 'Ucayali' }
+  ];
+
   useEffect(() => {
     fetchDepartments();
   }, []);
@@ -50,47 +79,6 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
       console.log('Fetching departments...');
       setDepartmentsLoading(true);
       
-      // Verificar conexión a Supabase
-      const { data: testData, error: testError } = await supabase
-        .from('departments')
-        .select('count')
-        .limit(1);
-
-      if (testError) {
-        console.error('Supabase connection error:', testError);
-        // Si no hay conexión, crear departamentos por defecto
-        const defaultDepartments = [
-          { id: '1', name: 'Amazonas' },
-          { id: '2', name: 'Áncash' },
-          { id: '3', name: 'Apurímac' },
-          { id: '4', name: 'Arequipa' },
-          { id: '5', name: 'Ayacucho' },
-          { id: '6', name: 'Cajamarca' },
-          { id: '7', name: 'Callao' },
-          { id: '8', name: 'Cusco' },
-          { id: '9', name: 'Huancavelica' },
-          { id: '10', name: 'Huánuco' },
-          { id: '11', name: 'Ica' },
-          { id: '12', name: 'Junín' },
-          { id: '13', name: 'La Libertad' },
-          { id: '14', name: 'Lambayeque' },
-          { id: '15', name: 'Lima' },
-          { id: '16', name: 'Loreto' },
-          { id: '17', name: 'Madre de Dios' },
-          { id: '18', name: 'Moquegua' },
-          { id: '19', name: 'Pasco' },
-          { id: '20', name: 'Piura' },
-          { id: '21', name: 'Puno' },
-          { id: '22', name: 'San Martín' },
-          { id: '23', name: 'Tacna' },
-          { id: '24', name: 'Tumbes' },
-          { id: '25', name: 'Ucayali' }
-        ];
-        setDepartments(defaultDepartments);
-        console.log('Using default departments:', defaultDepartments.length);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('departments')
         .select('id, name')
@@ -100,77 +88,25 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
       if (error) {
         console.error('Error fetching departments:', error);
-        throw error;
+        // Usar departamentos por defecto en caso de error
+        setDepartments(defaultDepartments);
+        console.log('Using default departments due to error');
+        return;
       }
       
       if (!data || data.length === 0) {
-        console.log('No departments found, using default departments');
-        const defaultDepartments = [
-          { id: '1', name: 'Amazonas' },
-          { id: '2', name: 'Áncash' },
-          { id: '3', name: 'Apurímac' },
-          { id: '4', name: 'Arequipa' },
-          { id: '5', name: 'Ayacucho' },
-          { id: '6', name: 'Cajamarca' },
-          { id: '7', name: 'Callao' },
-          { id: '8', name: 'Cusco' },
-          { id: '9', name: 'Huancavelica' },
-          { id: '10', name: 'Huánuco' },
-          { id: '11', name: 'Ica' },
-          { id: '12', name: 'Junín' },
-          { id: '13', name: 'La Libertad' },
-          { id: '14', name: 'Lambayeque' },
-          { id: '15', name: 'Lima' },
-          { id: '16', name: 'Loreto' },
-          { id: '17', name: 'Madre de Dios' },
-          { id: '18', name: 'Moquegua' },
-          { id: '19', name: 'Pasco' },
-          { id: '20', name: 'Piura' },
-          { id: '21', name: 'Puno' },
-          { id: '22', name: 'San Martín' },
-          { id: '23', name: 'Tacna' },
-          { id: '24', name: 'Tumbes' },
-          { id: '25', name: 'Ucayali' }
-        ];
+        console.log('No departments found in database, using default departments');
         setDepartments(defaultDepartments);
       } else {
         setDepartments(data);
+        console.log('Departments loaded from database:', data.length);
       }
-      console.log('Departments loaded:', departments.length || data?.length || 0);
     } catch (error) {
-      console.error('Error fetching departments:', error);
-      // En caso de error, usar departamentos por defecto
-      const defaultDepartments = [
-        { id: '1', name: 'Amazonas' },
-        { id: '2', name: 'Áncash' },
-        { id: '3', name: 'Apurímac' },
-        { id: '4', name: 'Arequipa' },
-        { id: '5', name: 'Ayacucho' },
-        { id: '6', name: 'Cajamarca' },
-        { id: '7', name: 'Callao' },
-        { id: '8', name: 'Cusco' },
-        { id: '9', name: 'Huancavelica' },
-        { id: '10', name: 'Huánuco' },
-        { id: '11', name: 'Ica' },
-        { id: '12', name: 'Junín' },
-        { id: '13', name: 'La Libertad' },
-        { id: '14', name: 'Lambayeque' },
-        { id: '15', name: 'Lima' },
-        { id: '16', name: 'Loreto' },
-        { id: '17', name: 'Madre de Dios' },
-        { id: '18', name: 'Moquegua' },
-        { id: '19', name: 'Pasco' },
-        { id: '20', name: 'Piura' },
-        { id: '21', name: 'Puno' },
-        { id: '22', name: 'San Martín' },
-        { id: '23', name: 'Tacna' },
-        { id: '24', name: 'Tumbes' },
-        { id: '25', name: 'Ucayali' }
-      ];
+      console.error('Error in fetchDepartments:', error);
       setDepartments(defaultDepartments);
       toast({
         title: "Información",
-        description: "Se están usando departamentos por defecto. La funcionalidad está disponible.",
+        description: "Se están usando departamentos por defecto.",
       });
     } finally {
       setDepartmentsLoading(false);
@@ -335,16 +271,8 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                 </SelectContent>
               </Select>
               {departments.length === 0 && !departmentsLoading && (
-                <p className="text-sm text-red-600 mt-1">
-                  No se pudieron cargar los departamentos. 
-                  <Button 
-                    type="button" 
-                    variant="link" 
-                    className="p-0 h-auto text-sm"
-                    onClick={fetchDepartments}
-                  >
-                    Reintentar
-                  </Button>
+                <p className="text-sm text-gray-600 mt-1">
+                  Usando departamentos por defecto
                 </p>
               )}
             </div>

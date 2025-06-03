@@ -1,189 +1,156 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Phone, Mail, User, MapPin, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, Calendar, Mail, AlertTriangle } from 'lucide-react';
+
+interface Customer {
+  id: string;
+  buyer_id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  total_orders: number;
+  total_spent: number;
+  last_order_date: string;
+}
 
 interface CustomerManagementProps {
   storeId: string;
 }
 
-interface Order {
-  id: string;
-  buyer_id: string;
-  total: number;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
-  delivery_address: string | null;
-  delivery_phone: string | null;
-  delivery_notes: string | null;
-  customer_notes: string | null;
-  created_at: string;
-  order_items: Array<{
-    id: string;
-    quantity: number;
-    unit_price: number;
-    product: {
-      id: string;
-      name: string;
-      image_urls: string[] | null;
-    };
-  }>;
-  buyer_profile?: {
-    name: string;
-    phone: string | null;
-    email: string | null;
-    address: string | null;
-    avatar_url: string | null;
-  };
-}
-
 const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchOrders();
-    
-    // Configurar suscripción en tiempo real
-    const channel = supabase
-      .channel('customer-orders-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `store_id=eq.${storeId}`
-        },
-        (payload) => {
-          console.log('Order change detected:', payload);
-          fetchOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    if (storeId) {
+      fetchCustomers();
+    }
   }, [storeId]);
 
-  const fetchOrders = async () => {
+  const fetchCustomers = async () => {
     try {
-      console.log('Fetching orders for store:', storeId);
-      
-      const { data, error } = await supabase
+      setLoading(true);
+      console.log('Fetching customers for store:', storeId);
+
+      // Primero obtenemos los pedidos con información básica
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
-          *,
-          order_items (
-            id,
-            quantity,
-            unit_price,
-            product:products (
-              id,
-              name,
-              image_urls
-            )
-          )
+          buyer_id,
+          total,
+          created_at,
+          delivery_address,
+          delivery_phone
         `)
-        .eq('store_id', storeId)
-        .in('status', ['confirmed', 'in_progress', 'shipped', 'delivered'])
-        .order('created_at', { ascending: false });
+        .eq('store_id', storeId);
 
-      if (error) {
-        console.error('Error fetching orders:', error);
-        throw error;
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        throw ordersError;
       }
 
-      console.log('Orders fetched:', data?.length || 0);
+      if (!ordersData || ordersData.length === 0) {
+        console.log('No orders found for this store');
+        setCustomers([]);
+        return;
+      }
 
-      // Obtener información completa de los compradores
-      const ordersWithBuyers = await Promise.all(
-        (data || []).map(async (order) => {
-          try {
-            // Intentar obtener buyer_profile primero
-            let { data: buyerProfile } = await supabase
-              .from('buyer_profiles')
-              .select('name, phone, email, address, avatar_url')
-              .eq('user_id', order.buyer_id)
-              .maybeSingle();
+      // Agrupar por buyer_id y calcular estadísticas
+      const customerStats = ordersData.reduce((acc: any, order) => {
+        const buyerId = order.buyer_id;
+        if (!acc[buyerId]) {
+          acc[buyerId] = {
+            buyer_id: buyerId,
+            total_orders: 0,
+            total_spent: 0,
+            last_order_date: order.created_at,
+            delivery_address: order.delivery_address,
+            delivery_phone: order.delivery_phone
+          };
+        }
+        
+        acc[buyerId].total_orders += 1;
+        acc[buyerId].total_spent += parseFloat(order.total || '0');
+        
+        // Mantener la fecha más reciente
+        if (new Date(order.created_at) > new Date(acc[buyerId].last_order_date)) {
+          acc[buyerId].last_order_date = order.created_at;
+          acc[buyerId].delivery_address = order.delivery_address;
+          acc[buyerId].delivery_phone = order.delivery_phone;
+        }
+        
+        return acc;
+      }, {});
 
-            // Si no hay buyer_profile, intentar seller_profile
-            if (!buyerProfile) {
-              const { data: sellerProfile } = await supabase
-                .from('seller_profiles')
-                .select('name, phone, email, business_name, avatar_url')
-                .eq('user_id', order.buyer_id)
-                .maybeSingle();
-              
-              if (sellerProfile) {
-                buyerProfile = {
-                  name: sellerProfile.name,
-                  phone: sellerProfile.phone,
-                  email: sellerProfile.email,
-                  address: sellerProfile.business_name,
-                  avatar_url: sellerProfile.avatar_url
-                };
-              }
-            }
+      // Obtener información de perfiles de usuarios
+      const buyerIds = Object.keys(customerStats);
+      const customersList: Customer[] = [];
 
-            // Si no hay perfil, obtener datos básicos del usuario
-            if (!buyerProfile) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('name, email')
-                .eq('id', order.buyer_id)
-                .maybeSingle();
-              
-              if (userData) {
-                buyerProfile = { 
-                  name: userData.name, 
-                  phone: null, 
-                  email: userData.email,
-                  address: null,
-                  avatar_url: null
-                };
-              }
-            }
+      for (const buyerId of buyerIds) {
+        try {
+          // Intentar obtener del perfil de comprador
+          const { data: buyerProfile } = await supabase
+            .from('buyer_profiles')
+            .select('name, email, phone, address')
+            .eq('user_id', buyerId)
+            .single();
 
-            return {
-              ...order,
-              status: order.status as Order['status'],
-              buyer_profile: buyerProfile || { 
-                name: 'Usuario', 
-                phone: null, 
-                email: null,
-                address: null,
-                avatar_url: null
-              }
-            };
-          } catch (error) {
-            console.error('Error fetching buyer profile for order:', order.id, error);
-            return {
-              ...order,
-              status: order.status as Order['status'],
-              buyer_profile: { 
-                name: 'Usuario', 
-                phone: null, 
-                email: null,
-                address: null,
-                avatar_url: null
-              }
-            };
+          // Si no encontramos perfil de comprador, intentar con users
+          let userInfo = buyerProfile;
+          if (!userInfo) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', buyerId)
+              .single();
+            
+            userInfo = userData;
           }
-        })
-      );
 
-      setOrders(ordersWithBuyers);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+          const stats = customerStats[buyerId];
+          customersList.push({
+            id: `customer-${buyerId}`,
+            buyer_id: buyerId,
+            name: userInfo?.name || 'Cliente sin nombre',
+            email: userInfo?.email || 'Email no disponible',
+            phone: userInfo?.phone || stats.delivery_phone || 'Teléfono no disponible',
+            address: userInfo?.address || stats.delivery_address || 'Dirección no disponible',
+            total_orders: stats.total_orders,
+            total_spent: stats.total_spent,
+            last_order_date: stats.last_order_date
+          });
+        } catch (error) {
+          console.error(`Error fetching profile for buyer ${buyerId}:`, error);
+          // Agregar cliente con información limitada
+          const stats = customerStats[buyerId];
+          customersList.push({
+            id: `customer-${buyerId}`,
+            buyer_id: buyerId,
+            name: 'Cliente sin nombre',
+            email: 'Email no disponible',
+            phone: stats.delivery_phone || 'Teléfono no disponible',
+            address: stats.delivery_address || 'Dirección no disponible',
+            total_orders: stats.total_orders,
+            total_spent: stats.total_spent,
+            last_order_date: stats.last_order_date
+          });
+        }
+      }
+
+      console.log('Customers processed:', customersList.length);
+      setCustomers(customersList);
+
+    } catch (error: any) {
+      console.error('Error in fetchCustomers:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los pedidos de clientes",
+        description: "No se pudieron cargar los clientes",
         variant: "destructive",
       });
     } finally {
@@ -191,265 +158,130 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
     }
   };
 
-  const contactBuyer = (order: Order) => {
-    // Priorizar teléfono de entrega, luego teléfono del perfil
-    const phone = order.delivery_phone || order.buyer_profile?.phone;
-    
-    if (!phone) {
+  const openWhatsApp = (phone: string, customerName: string) => {
+    if (!phone || phone === 'Teléfono no disponible') {
       toast({
-        title: "Sin número de contacto",
-        description: "Este cliente no tiene número de WhatsApp registrado",
+        title: "Teléfono no disponible",
+        description: "Este cliente no tiene un número de teléfono registrado",
         variant: "destructive",
       });
       return;
     }
 
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-    let whatsappNumber = cleanPhone;
-    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
-      whatsappNumber = '51' + whatsappNumber;
-    }
-
-    const customerName = order.buyer_profile?.name || 'Cliente';
-    const orderId = order.id.slice(-6);
-    const orderTotal = order.total.toFixed(2);
-    const products = order.order_items.map(item => 
-      `- ${item.product.name} (x${item.quantity})`
-    ).join('\n');
-
-    const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId}.\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\n¿En qué puedo ayudarte?`;
-    
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    // Limpiar el número de teléfono
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = encodeURIComponent(`Hola ${customerName}, gracias por tu compra en nuestra tienda. ¿En qué podemos ayudarte?`);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
     window.open(whatsappUrl, '_blank');
-  };
-
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'shipped': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: Order['status']) => {
-    switch (status) {
-      case 'confirmed': return <Package className="h-4 w-4" />;
-      case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'shipped': return <Package className="h-4 w-4" />;
-      case 'delivered': return <CheckCircle className="h-4 w-4" />;
-      case 'cancelled': return <XCircle className="h-4 w-4" />;
-      default: return <Package className="h-4 w-4" />;
-    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-6">Gestión de Clientes</h2>
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Clientes</h2>
-          <p className="text-gray-600">Administra los pedidos confirmados y comunícate con tus clientes</p>
+          <h2 className="text-2xl font-bold">Gestión de Clientes</h2>
+          <p className="text-gray-600 mt-1">Administra y comunícate con tus clientes</p>
         </div>
-        <Button onClick={fetchOrders} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Actualizar
-        </Button>
+        <div className="bg-blue-50 px-4 py-2 rounded-lg">
+          <span className="text-sm font-medium text-blue-700">
+            Total: {customers.length} clientes
+          </span>
+        </div>
       </div>
 
-      {orders.length === 0 ? (
+      {customers.length === 0 ? (
         <Card>
-          <CardContent className="text-center py-12">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay pedidos confirmados</h3>
-            <p className="text-gray-500">Los pedidos confirmados aparecerán aquí para gestionar tus clientes</p>
+          <CardContent className="p-8 text-center">
+            <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No tienes clientes aún
+            </h3>
+            <p className="text-gray-500">
+              Los clientes aparecerán aquí una vez que realicen pedidos en tu tienda.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 max-h-[70vh] overflow-y-auto">
-          {orders.map((order) => (
-            <Card key={order.id} className="overflow-hidden border-l-4 border-l-blue-500">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg text-blue-900">
-                      Pedido #{order.id.slice(-6)}
-                    </CardTitle>
-                    <Badge className={`${getStatusColor(order.status)} border`}>
-                      {getStatusIcon(order.status)}
-                      <span className="ml-1 capitalize">{order.status}</span>
-                    </Badge>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-green-600">S/{order.total.toFixed(2)}</div>
-                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(order.created_at).toLocaleDateString('es-PE')}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {customers.map((customer) => (
+            <Card key={customer.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{customer.name}</CardTitle>
+                      <CardDescription className="text-sm">
+                        Cliente desde {new Date(customer.last_order_date).toLocaleDateString()}
+                      </CardDescription>
                     </div>
                   </div>
                 </div>
               </CardHeader>
               
-              <CardContent className="pt-6">
-                {/* Información del Cliente Mejorada */}
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 mb-6 shadow-sm">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      {order.buyer_profile?.avatar_url ? (
-                        <img 
-                          src={order.buyer_profile.avatar_url} 
-                          alt={order.buyer_profile.name || 'Cliente'}
-                          className="w-16 h-16 rounded-full object-cover border-3 border-white shadow-lg"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
-                          <User className="h-8 w-8 text-white" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                          <User className="h-5 w-5" />
-                          Información del Cliente
-                        </h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Columna izquierda - Datos básicos */}
-                        <div className="space-y-3">
-                          <div className="bg-white rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <User className="h-4 w-4 text-blue-600" />
-                              <span className="text-sm font-medium text-blue-800">Nombre:</span>
-                            </div>
-                            <p className="text-gray-900 font-semibold">
-                              {order.buyer_profile?.name || 'No registrado'}
-                            </p>
-                          </div>
-                          
-                          {order.buyer_profile?.email && (
-                            <div className="bg-white rounded-lg p-3 border border-blue-100">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Mail className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm font-medium text-blue-800">Email:</span>
-                              </div>
-                              <p className="text-gray-700 text-sm">{order.buyer_profile.email}</p>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Columna derecha - Contacto */}
-                        <div className="space-y-3">
-                          <div className="bg-white rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm font-medium text-blue-800">Teléfono:</span>
-                              </div>
-                            </div>
-                            
-                            {(order.delivery_phone || order.buyer_profile?.phone) ? (
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-gray-900 font-medium">
-                                    {order.delivery_phone || order.buyer_profile?.phone}
-                                  </p>
-                                  {order.delivery_phone && order.buyer_profile?.phone && 
-                                   order.delivery_phone !== order.buyer_profile.phone && (
-                                    <p className="text-xs text-gray-500">
-                                      Perfil: {order.buyer_profile.phone}
-                                    </p>
-                                  )}
-                                </div>
-                                <Button
-                                  onClick={() => contactBuyer(order)}
-                                  className="bg-green-600 hover:bg-green-700 text-white shadow-sm ml-2"
-                                  size="sm"
-                                >
-                                  <MessageCircle className="h-4 w-4 mr-1" />
-                                  WhatsApp
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
-                                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                <span className="text-sm text-yellow-800 font-medium">
-                                  Este cliente no tiene número de WhatsApp registrado
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Direcciones */}
-                      <div className="mt-4 space-y-2">
-                        {order.delivery_address && (
-                          <div className="bg-white rounded-lg p-3 border border-green-200">
-                            <div className="flex items-start gap-2">
-                              <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
-                              <div className="flex-1">
-                                <span className="text-sm font-medium text-green-800">Dirección de entrega:</span>
-                                <p className="text-gray-900 mt-1">{order.delivery_address}</p>
-                                {order.delivery_notes && (
-                                  <p className="text-sm text-gray-600 mt-1 italic">
-                                    Notas: {order.delivery_notes}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {order.buyer_profile?.address && order.delivery_address !== order.buyer_profile.address && (
-                          <div className="bg-white rounded-lg p-3 border border-blue-100">
-                            <div className="flex items-start gap-2">
-                              <MapPin className="h-4 w-4 text-blue-600 mt-0.5" />
-                              <div>
-                                <span className="text-sm font-medium text-blue-800">Dirección personal:</span>
-                                <p className="text-gray-700 mt-1 text-sm">{order.buyer_profile.address}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Productos resumidos */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold mb-3 text-gray-900 flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Productos ({order.order_items.length})
-                  </h4>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {order.order_items.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
-                        <span className="truncate font-medium">{item.product.name}</span>
-                        <span className="text-gray-600 ml-2">x{item.quantity}</span>
-                      </div>
-                    ))}
+              <CardContent className="space-y-4">
+                {/* Información del Cliente */}
+                <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                  <h4 className="font-medium text-gray-900 text-sm mb-2">Información del Cliente</h4>
+                  
+                  <div className="flex items-center space-x-2 text-sm">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="text-gray-700">{customer.name}</span>
                   </div>
                   
-                  {order.customer_notes && (
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                      <strong className="text-yellow-800">Nota del cliente:</strong>
-                      <p className="text-yellow-700 mt-1">{order.customer_notes}</p>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span className="text-gray-700">{customer.phone}</span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <span className="text-gray-700 truncate">{customer.email}</span>
+                  </div>
+                  
+                  {customer.address && customer.address !== 'Dirección no disponible' && (
+                    <div className="flex items-start space-x-2 text-sm">
+                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                      <span className="text-gray-700 text-xs leading-tight">{customer.address}</span>
                     </div>
                   )}
                 </div>
+
+                {/* Estadísticas */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 p-3 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-green-600">{customer.total_orders}</p>
+                    <p className="text-xs text-green-700">Pedidos</p>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-blue-600">S/{customer.total_spent.toFixed(2)}</p>
+                    <p className="text-xs text-blue-700">Total gastado</p>
+                  </div>
+                </div>
+
+                {/* Botón de WhatsApp */}
+                <Button 
+                  onClick={() => openWhatsApp(customer.phone, customer.name)}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!customer.phone || customer.phone === 'Teléfono no disponible'}
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Contactar por WhatsApp
+                  <ExternalLink className="h-4 w-4 ml-2" />
+                </Button>
               </CardContent>
             </Card>
           ))}
