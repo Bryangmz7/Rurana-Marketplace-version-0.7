@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, Calendar } from 'lucide-react';
+import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, Calendar, Mail, AlertTriangle } from 'lucide-react';
 
 interface CustomerManagementProps {
   storeId: string;
@@ -17,6 +17,8 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
   delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_notes: string | null;
   customer_notes: string | null;
   created_at: string;
   order_items: Array<{
@@ -59,7 +61,7 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
         },
         (payload) => {
           console.log('Order change detected:', payload);
-          fetchOrders(); // Recargar pedidos cuando hay cambios
+          fetchOrders();
         }
       )
       .subscribe();
@@ -189,35 +191,10 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      setOrders(prev => prev.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
-
-      toast({
-        title: "Estado actualizado",
-        description: "El estado del pedido se ha actualizado correctamente",
-      });
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el estado del pedido",
-        variant: "destructive",
-      });
-    }
-  };
-
   const contactBuyer = (order: Order) => {
-    const phone = order.buyer_profile?.phone;
+    // Priorizar teléfono de entrega, luego teléfono del perfil
+    const phone = order.delivery_phone || order.buyer_profile?.phone;
+    
     if (!phone) {
       toast({
         title: "Sin número de contacto",
@@ -298,13 +275,13 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 max-h-[70vh] overflow-y-auto">
+        <div className="grid gap-6 max-h-[70vh] overflow-y-auto">
           {orders.map((order) => (
-            <Card key={order.id} className="w-full">
-              <CardHeader className="pb-3">
+            <Card key={order.id} className="overflow-hidden border-l-4 border-l-blue-500">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-lg text-blue-900">
                       Pedido #{order.id.slice(-6)}
                     </CardTitle>
                     <Badge className={`${getStatusColor(order.status)} border`}>
@@ -322,67 +299,156 @@ const CustomerManagement = ({ storeId }: CustomerManagementProps) => {
                 </div>
               </CardHeader>
               
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Información del cliente */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <User className="h-4 w-4 text-blue-600" />
-                      <h4 className="font-medium text-blue-900">Cliente</h4>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="font-medium">{order.buyer_profile?.name || 'Usuario'}</div>
-                      
-                      {order.buyer_profile?.email && (
-                        <div className="text-sm text-gray-600">{order.buyer_profile.email}</div>
-                      )}
-                      
-                      {order.buyer_profile?.phone ? (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-3 w-3 text-gray-500" />
-                            <span>{order.buyer_profile.phone}</span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => contactBuyer(order)}
-                            className="text-green-600 border-green-600 hover:bg-green-50 h-7 px-2"
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                          </Button>
-                        </div>
+              <CardContent className="pt-6">
+                {/* Información del Cliente Mejorada */}
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 mb-6 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
+                      {order.buyer_profile?.avatar_url ? (
+                        <img 
+                          src={order.buyer_profile.avatar_url} 
+                          alt={order.buyer_profile.name || 'Cliente'}
+                          className="w-16 h-16 rounded-full object-cover border-3 border-white shadow-lg"
+                        />
                       ) : (
-                        <div className="text-sm text-gray-500">Sin WhatsApp</div>
-                      )}
-                      
-                      {order.delivery_address && (
-                        <div className="flex items-start gap-2 text-sm mt-2">
-                          <MapPin className="h-3 w-3 text-gray-500 mt-0.5" />
-                          <span className="text-gray-600">{order.delivery_address}</span>
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
+                          <User className="h-8 w-8 text-white" />
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Productos resumidos */}
-                  <div>
-                    <h4 className="font-medium mb-2">Productos ({order.order_items.length})</h4>
-                    <div className="space-y-1 max-h-24 overflow-y-auto">
-                      {order.order_items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span className="truncate">{item.product.name}</span>
-                          <span className="text-gray-600">x{item.quantity}</span>
-                        </div>
-                      ))}
                     </div>
                     
-                    {order.customer_notes && (
-                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                        <strong>Nota:</strong> {order.customer_notes}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                          <User className="h-5 w-5" />
+                          Información del Cliente
+                        </h3>
                       </div>
-                    )}
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Columna izquierda - Datos básicos */}
+                        <div className="space-y-3">
+                          <div className="bg-white rounded-lg p-3 border border-blue-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <User className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-blue-800">Nombre:</span>
+                            </div>
+                            <p className="text-gray-900 font-semibold">
+                              {order.buyer_profile?.name || 'No registrado'}
+                            </p>
+                          </div>
+                          
+                          {order.buyer_profile?.email && (
+                            <div className="bg-white rounded-lg p-3 border border-blue-100">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Mail className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-800">Email:</span>
+                              </div>
+                              <p className="text-gray-700 text-sm">{order.buyer_profile.email}</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Columna derecha - Contacto */}
+                        <div className="space-y-3">
+                          <div className="bg-white rounded-lg p-3 border border-blue-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-800">Teléfono:</span>
+                              </div>
+                            </div>
+                            
+                            {(order.delivery_phone || order.buyer_profile?.phone) ? (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-gray-900 font-medium">
+                                    {order.delivery_phone || order.buyer_profile?.phone}
+                                  </p>
+                                  {order.delivery_phone && order.buyer_profile?.phone && 
+                                   order.delivery_phone !== order.buyer_profile.phone && (
+                                    <p className="text-xs text-gray-500">
+                                      Perfil: {order.buyer_profile.phone}
+                                    </p>
+                                  )}
+                                </div>
+                                <Button
+                                  onClick={() => contactBuyer(order)}
+                                  className="bg-green-600 hover:bg-green-700 text-white shadow-sm ml-2"
+                                  size="sm"
+                                >
+                                  <MessageCircle className="h-4 w-4 mr-1" />
+                                  WhatsApp
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                <span className="text-sm text-yellow-800 font-medium">
+                                  Este cliente no tiene número de WhatsApp registrado
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Direcciones */}
+                      <div className="mt-4 space-y-2">
+                        {order.delivery_address && (
+                          <div className="bg-white rounded-lg p-3 border border-green-200">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-green-800">Dirección de entrega:</span>
+                                <p className="text-gray-900 mt-1">{order.delivery_address}</p>
+                                {order.delivery_notes && (
+                                  <p className="text-sm text-gray-600 mt-1 italic">
+                                    Notas: {order.delivery_notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {order.buyer_profile?.address && order.delivery_address !== order.buyer_profile.address && (
+                          <div className="bg-white rounded-lg p-3 border border-blue-100">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-blue-600 mt-0.5" />
+                              <div>
+                                <span className="text-sm font-medium text-blue-800">Dirección personal:</span>
+                                <p className="text-gray-700 mt-1 text-sm">{order.buyer_profile.address}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* Productos resumidos */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-3 text-gray-900 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Productos ({order.order_items.length})
+                  </h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {order.order_items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
+                        <span className="truncate font-medium">{item.product.name}</span>
+                        <span className="text-gray-600 ml-2">x{item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {order.customer_notes && (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                      <strong className="text-yellow-800">Nota del cliente:</strong>
+                      <p className="text-yellow-700 mt-1">{order.customer_notes}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
