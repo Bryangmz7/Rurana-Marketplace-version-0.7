@@ -1,36 +1,30 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, calendar, trash2 } from 'lucide-react';
-
-interface OrderItem {
-  id: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product: {
-    id: string;
-    name: string;
-    image_urls: string[] | null;
-  };
-}
+import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw, Calendar, Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
-  order_number: string;
   buyer_id: string;
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'cancelled' | 'shipped' | 'delivered';
   delivery_address: string | null;
   customer_notes: string | null;
   created_at: string;
-  order_items: OrderItem[];
+  order_items: Array<{
+    id: string;
+    quantity: number;
+    unit_price: number;
+    product: {
+      id: string;
+      name: string;
+      image_urls: string[] | null;
+    };
+  }>;
   buyer_profile?: {
     name: string;
     phone: string | null;
@@ -40,34 +34,71 @@ interface Order {
   };
 }
 
-interface NewOrderManagementProps {
-  storeId: string;
-}
-
-const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
+const NewOrderManagement = ({ storeId }: { storeId: string }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'active'>('all');
   const { toast } = useToast();
 
   useEffect(() => {
     fetchOrders();
     
-    // Configurar suscripción en tiempo real
+    // Configurar suscripción en tiempo real para nuevos pedidos
     const channel = supabase
-      .channel('new-orders-realtime')
+      .channel('orders-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'orders',
           filter: `store_id=eq.${storeId}`
         },
         (payload) => {
-          console.log('Order change detected:', payload);
-          fetchOrders(); // Recargar pedidos cuando hay cambios
+          console.log('New order received:', payload);
+          // Recargar pedidos cuando llega uno nuevo
+          fetchOrders();
+          
+          toast({
+            title: "¡Nuevo pedido!",
+            description: `Has recibido un nuevo pedido por S/${payload.new.total}`,
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${storeId}`
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          // Actualizar el estado local cuando se actualice un pedido
+          setOrders(prev => prev.map(order => 
+            order.id === payload.new.id 
+              ? { ...order, status: payload.new.status as Order['status'] }
+              : order
+          ));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${storeId}`
+        },
+        (payload) => {
+          console.log('Order deleted:', payload);
+          // Remover el pedido del estado local
+          setOrders(prev => prev.filter(order => order.id !== payload.old.id));
+          
+          toast({
+            title: "Pedido eliminado",
+            description: "El pedido ha sido eliminado correctamente",
+          });
         }
       )
       .subscribe();
@@ -75,12 +106,10 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [storeId]);
+  }, [storeId, toast]);
 
   const fetchOrders = async () => {
     try {
-      console.log('Fetching orders for store:', storeId);
-      
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -89,7 +118,6 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
             id,
             quantity,
             unit_price,
-            total_price,
             product:products (
               id,
               name,
@@ -100,25 +128,20 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
         .eq('store_id', storeId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching orders:', error);
-        throw error;
-      }
-
-      console.log('Orders fetched:', data?.length || 0);
+      if (error) throw error;
 
       // Obtener información completa de los compradores
       const ordersWithBuyers = await Promise.all(
         (data || []).map(async (order) => {
           try {
-            // Intentar obtener buyer_profile primero
+            // Primero intentar obtener buyer_profile
             let { data: buyerProfile } = await supabase
               .from('buyer_profiles')
               .select('name, phone, email, address, avatar_url')
               .eq('user_id', order.buyer_id)
               .maybeSingle();
 
-            // Si no hay buyer_profile, intentar seller_profile
+            // Si no hay buyer_profile, intentar seller_profile (en caso de que un seller haga una compra)
             if (!buyerProfile) {
               const { data: sellerProfile } = await supabase
                 .from('seller_profiles')
@@ -137,7 +160,7 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
               }
             }
 
-            // Si no hay perfil, obtener datos básicos del usuario
+            // Si tampoco hay seller_profile, obtener de users
             if (!buyerProfile) {
               const { data: userData } = await supabase
                 .from('users')
@@ -198,7 +221,6 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    setUpdatingOrder(orderId);
     try {
       const { error } = await supabase
         .from('orders')
@@ -207,13 +229,14 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
 
       if (error) throw error;
 
+      // Actualizar estado local inmediatamente
       setOrders(prev => prev.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
 
       toast({
         title: "Estado actualizado",
-        description: "El estado del pedido se ha actualizado correctamente",
+        description: "El estado del pedido se ha actualizado correctamente y el cliente ha sido notificado",
       });
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -222,24 +245,28 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
         description: "No se pudo actualizar el estado del pedido",
         variant: "destructive",
       });
-    } finally {
-      setUpdatingOrder(null);
     }
   };
 
   const deleteOrder = async (orderId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
-      return;
-    }
-
     try {
-      const { error } = await supabase
+      // Primero eliminar los items del pedido
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+
+      if (itemsError) throw itemsError;
+
+      // Luego eliminar el pedido
+      const { error: orderError } = await supabase
         .from('orders')
         .delete()
         .eq('id', orderId);
 
-      if (error) throw error;
+      if (orderError) throw orderError;
 
+      // Actualizar estado local inmediatamente
       setOrders(prev => prev.filter(order => order.id !== orderId));
 
       toast({
@@ -256,50 +283,11 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
     }
   };
 
-  const contactBuyer = (order: Order) => {
-    const phone = order.buyer_profile?.phone;
-    if (!phone) {
-      toast({
-        title: "Sin número de contacto",
-        description: "Este cliente no tiene número de WhatsApp registrado",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-    let whatsappNumber = cleanPhone;
-    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
-      whatsappNumber = '51' + whatsappNumber;
-    }
-
-    const customerName = order.buyer_profile?.name || 'Cliente';
-    const orderId = order.order_number || order.id.slice(-6);
-    const orderTotal = order.total.toFixed(2);
-    const products = order.order_items.map(item => 
-      `- ${item.product.name} (x${item.quantity})`
-    ).join('\n');
-
-    const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId}.\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\n¿En qué puedo ayudarte?`;
-    
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  };
-
-  const filteredOrders = filter === 'all'
-    ? orders
-    : orders.filter(order => {
-        if (filter === 'pending') return order.status === 'pending';
-        if (filter === 'confirmed') return order.status === 'confirmed';
-        if (filter === 'active') return ['confirmed', 'in_progress', 'shipped'].includes(order.status);
-        return true;
-      });
-
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'in_progress': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'shipped': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
@@ -319,6 +307,49 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
     }
   };
 
+  const getStatusText = (status: Order['status']) => {
+    switch (status) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmado';
+      case 'in_progress': return 'En Progreso';
+      case 'shipped': return 'Enviado';
+      case 'delivered': return 'Entregado';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
+    }
+  };
+
+  const contactBuyer = (order: Order) => {
+    const phone = order.buyer_profile?.phone;
+    if (!phone) {
+      toast({
+        title: "Sin número de contacto",
+        description: "Este comprador no tiene número de WhatsApp registrado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+    let whatsappNumber = cleanPhone;
+    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
+      whatsappNumber = '51' + whatsappNumber;
+    }
+
+    const customerName = order.buyer_profile?.name || 'Cliente';
+    const orderId = order.id.slice(-6);
+    const orderTotal = order.total.toFixed(2);
+    const orderDate = new Date(order.created_at).toLocaleDateString('es-PE');
+    const products = order.order_items.map(item => 
+      `- ${item.product.name} (x${item.quantity})`
+    ).join('\n');
+
+    const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId} realizado el ${orderDate}.\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\n¿En qué puedo ayudarte con tu pedido?`;
+    
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -332,151 +363,213 @@ const NewOrderManagement = ({ storeId }: NewOrderManagementProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Gestión de Pedidos</h2>
-          <p className="text-gray-600">Administra todos los pedidos de tu tienda</p>
+          <p className="text-gray-600">Administra todos los pedidos de tu tienda • Sincronización automática</p>
         </div>
-        <Button onClick={fetchOrders} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
+        <Button onClick={fetchOrders} variant="outline">
+          <Package className="h-4 w-4 mr-2" />
           Actualizar
         </Button>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>
-          Todos ({orders.length})
-        </Button>
-        <Button variant={filter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('pending')}>
-          Pendientes ({orders.filter(o => o.status === 'pending').length})
-        </Button>
-        <Button variant={filter === 'confirmed' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('confirmed')}>
-          Confirmados ({orders.filter(o => o.status === 'confirmed').length})
-        </Button>
-        <Button variant={filter === 'active' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('active')}>
-          Activos ({orders.filter(o => ['confirmed', 'in_progress', 'shipped'].includes(o.status)).length})
-        </Button>
-      </div>
-
-      {filteredOrders.length === 0 ? (
+      {orders.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay pedidos</h3>
-            <p className="text-gray-500">Los nuevos pedidos aparecerán aquí</p>
+            <p className="text-gray-600">Los pedidos aparecerán aquí cuando los clientes realicen compras</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 max-h-[70vh] overflow-y-auto">
-          {filteredOrders.map((order) => (
-            <Card key={order.id} className="w-full">
-              <CardHeader className="pb-3">
+        <div className="grid gap-6">
+          {orders.map((order) => (
+            <Card key={order.id} className="overflow-hidden">
+              <CardHeader className="bg-gray-50 border-b">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">
-                      Pedido #{order.order_number || order.id.slice(-6)}
-                    </CardTitle>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <CardTitle className="text-lg">
+                        Pedido #{order.id.slice(-6)}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(order.created_at).toLocaleString('es-PE')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Badge className={`${getStatusColor(order.status)} border`}>
                       {getStatusIcon(order.status)}
-                      <span className="ml-1 capitalize">{order.status}</span>
+                      <span className="ml-1">{getStatusText(order.status)}</span>
                     </Badge>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-green-600">S/{order.total.toFixed(2)}</div>
-                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                      <calendar className="h-3 w-3" />
-                      {new Date(order.created_at).toLocaleDateString('es-PE')}
-                    </div>
+                    <Button
+                      onClick={() => deleteOrder(order.id)}
+                      variant="destructive"
+                      size="sm"
+                      className="ml-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
               
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Información del cliente */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <User className="h-4 w-4 text-blue-600" />
-                      <h4 className="font-medium text-blue-900">Cliente</h4>
-                      <Button
-                        onClick={() => deleteOrder(order.id)}
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="font-medium">{order.buyer_profile?.name || 'Usuario'}</div>
-                      
-                      {order.buyer_profile?.email && (
-                        <div className="text-sm text-gray-600">{order.buyer_profile.email}</div>
-                      )}
-                      
-                      {order.buyer_profile?.phone ? (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-3 w-3 text-gray-500" />
-                            <span>{order.buyer_profile.phone}</span>
-                          </div>
+              <CardContent className="p-6 space-y-6">
+                {/* Información del cliente mejorada */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                  <div className="flex items-start gap-4">
+                    {order.buyer_profile?.avatar_url ? (
+                      <img 
+                        src={order.buyer_profile.avatar_url} 
+                        alt={order.buyer_profile.name || 'Cliente'}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-blue-600" />
+                      </div>
+                    )}
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-blue-900 text-lg">Información del Cliente</h4>
+                        {/* Botón de WhatsApp siempre visible si hay teléfono */}
+                        {order.buyer_profile?.phone && (
                           <Button
-                            size="sm"
-                            variant="outline"
                             onClick={() => contactBuyer(order)}
-                            className="text-green-600 border-green-600 hover:bg-green-50 h-7 px-2"
+                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                            size="sm"
                           >
-                            <MessageCircle className="h-3 w-3" />
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            WhatsApp
                           </Button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium">Nombre:</span>
+                            <span className="text-gray-700">{order.buyer_profile?.name || 'No disponible'}</span>
+                          </div>
+                          
+                          {order.buyer_profile?.email && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Email:</span>
+                              <span className="text-gray-700">{order.buyer_profile.email}</span>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">Sin WhatsApp</div>
-                      )}
+                        
+                        <div className="space-y-2">
+                          {order.buyer_profile?.phone ? (
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-blue-600" />
+                              <span className="font-medium">Teléfono:</span>
+                              <span className="text-gray-700">{order.buyer_profile.phone}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-gray-500">
+                              <Phone className="h-4 w-4" />
+                              <span className="font-medium">Teléfono:</span>
+                              <span className="italic">No registrado</span>
+                            </div>
+                          )}
+                          
+                          {order.buyer_profile?.address && (
+                            <div className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-blue-600 mt-0.5" />
+                              <div>
+                                <span className="font-medium">Dirección personal:</span>
+                                <p className="text-gray-700">{order.buyer_profile.address}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       
                       {order.delivery_address && (
-                        <div className="flex items-start gap-2 text-sm mt-2">
-                          <MapPin className="h-3 w-3 text-gray-500 mt-0.5" />
-                          <span className="text-gray-600">{order.delivery_address}</span>
+                        <div className="mt-4 p-3 bg-white rounded border border-blue-200">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+                            <div>
+                              <span className="font-medium text-green-800">Dirección de entrega:</span>
+                              <p className="text-gray-700 mt-1">{order.delivery_address}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Mensaje si no hay WhatsApp */}
+                      {!order.buyer_profile?.phone && (
+                        <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ Este cliente no tiene número de WhatsApp registrado
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
+                </div>
 
-                  {/* Productos y estado */}
-                  <div>
-                    <h4 className="font-medium mb-2">Productos ({order.order_items.length})</h4>
-                    <div className="space-y-1 max-h-24 overflow-y-auto mb-3">
-                      {order.order_items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span className="truncate">{item.product.name}</span>
-                          <span className="text-gray-600">x{item.quantity}</span>
+                {/* Productos */}
+                <div>
+                  <h4 className="font-semibold mb-3 text-gray-900">Productos del pedido:</h4>
+                  <div className="space-y-3">
+                    {order.order_items.map((item) => (
+                      <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border">
+                        {item.product.image_urls && item.product.image_urls[0] && (
+                          <img
+                            src={item.product.image_urls[0]}
+                            alt={item.product.name}
+                            className="w-16 h-16 object-cover rounded-lg border"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{item.product.name}</p>
+                          <p className="text-sm text-gray-600">
+                            Cantidad: {item.quantity} × S/{item.unit_price.toFixed(2)}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                    
-                    {order.customer_notes && (
-                      <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                        <strong>Nota:</strong> {order.customer_notes}
+                        <div className="text-right">
+                          <p className="font-semibold text-lg text-gray-900">
+                            S/{(item.quantity * item.unit_price).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    ))}
+                  </div>
+                </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Estado:</span>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value: Order['status']) => updateOrderStatus(order.id, value)}
-                        disabled={updatingOrder === order.id}
-                      >
-                        <SelectTrigger className="w-32 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pendiente</SelectItem>
-                          <SelectItem value="confirmed">Confirmado</SelectItem>
-                          <SelectItem value="in_progress">En Progreso</SelectItem>
-                          <SelectItem value="shipped">Enviado</SelectItem>
-                          <SelectItem value="delivered">Entregado</SelectItem>
-                          <SelectItem value="cancelled">Cancelado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                {order.customer_notes && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h4 className="font-medium mb-2 text-amber-900">Notas del cliente:</h4>
+                    <p className="text-amber-800 text-sm">{order.customer_notes}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                  <div className="text-xl font-bold text-gray-900">
+                    Total: S/{order.total.toFixed(2)}
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <span className="text-sm text-gray-600">Estado:</span>
+                    <Select
+                      value={order.status}
+                      onValueChange={(value: Order['status']) => updateOrderStatus(order.id, value)}
+                    >
+                      <SelectTrigger className="w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="confirmed">Confirmado</SelectItem>
+                        <SelectItem value="in_progress">En Progreso</SelectItem>
+                        <SelectItem value="shipped">Enviado</SelectItem>
+                        <SelectItem value="delivered">Completado</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>

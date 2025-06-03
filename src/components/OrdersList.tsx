@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +13,7 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   delivery_address: string | null;
-  notes: string | null;
+  customer_notes: string | null;
   created_at: string;
   order_items: Array<{
     id: string;
@@ -78,7 +77,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
           // Actualizar el estado local cuando se actualice un pedido
           setOrders(prev => prev.map(order => 
             order.id === payload.new.id 
-              ? { ...order, status: payload.new.status }
+              ? { ...order, status: payload.new.status as Order['status'] }
               : order
           ));
         }
@@ -182,6 +181,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
 
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: buyerProfile || { 
                 name: 'Usuario', 
                 phone: null, 
@@ -194,6 +194,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
             console.error('Error fetching buyer profile for order:', order.id, error);
             return {
               ...order,
+              status: order.status as Order['status'],
               buyer_profile: { 
                 name: 'Usuario', 
                 phone: null, 
@@ -537,10 +538,10 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                   </div>
                 </div>
 
-                {order.notes && (
+                {order.customer_notes && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <h4 className="font-medium mb-2 text-amber-900">Notas del cliente:</h4>
-                    <p className="text-amber-800 text-sm">{order.notes}</p>
+                    <p className="text-amber-800 text-sm">{order.customer_notes}</p>
                   </div>
                 )}
 
