@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Phone, MapPin, Building, MessageSquare } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building, MessageSquare, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ImageUpload from './ImageUpload';
 
@@ -19,6 +19,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -27,20 +28,58 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
 
   const fetchProfile = async () => {
     try {
+      setLoading(true);
+      console.log(`Fetching ${userRole} profile for user:`, userId);
+      
       const tableName = userRole === 'seller' ? 'seller_profiles' : 'buyer_profiles';
       const { data, error } = await supabase
         .from(tableName)
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+      if (error) {
+        console.error(`Error fetching ${userRole} profile:`, error);
+        throw error;
+      }
+
+      if (!data) {
+        console.log(`No ${userRole} profile found, creating default profile`);
+        // Crear perfil por defecto si no existe
+        const defaultProfile = {
+          user_id: userId,
+          name: '',
+          email: '',
+          phone: '',
+          ...(userRole === 'seller' ? {
+            business_name: '',
+            business_description: ''
+          } : {
+            address: ''
+          })
+        };
+        
+        const { data: newProfile, error: createError } = await supabase
+          .from(tableName)
+          .insert([defaultProfile])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error(`Error creating ${userRole} profile:`, createError);
+          throw createError;
+        }
+        
+        setProfile(newProfile);
+      } else {
+        console.log(`${userRole} profile loaded:`, data);
+        setProfile(data);
+      }
+    } catch (error: any) {
+      console.error('Error in fetchProfile:', error);
       toast({
         title: "Error",
-        description: "No se pudo cargar el perfil",
+        description: `No se pudo cargar el perfil: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -49,25 +88,38 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
   };
 
   const handleSave = async () => {
+    if (!profile || !hasChanges) return;
+    
     setSaving(true);
     try {
+      console.log('Saving profile changes:', profile);
+      
       const tableName = userRole === 'seller' ? 'seller_profiles' : 'buyer_profiles';
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(tableName)
         .update(profile)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+      }
 
+      console.log('Profile updated successfully:', data);
+      setProfile(data);
+      setHasChanges(false);
+      
       toast({
         title: "Perfil actualizado",
         description: "Los cambios se han guardado correctamente",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el perfil",
+        description: `No se pudo actualizar el perfil: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -75,15 +127,17 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
     }
   };
 
+  const handleInputChange = (field: string, value: string) => {
+    setProfile((prev: any) => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
   const handleImageUpload = (url: string) => {
-    setProfile({ ...profile, avatar_url: url });
+    handleInputChange('avatar_url', url);
   };
 
   const formatPhoneNumber = (value: string) => {
-    // Limpiar el número (solo dígitos)
     const cleaned = value.replace(/\D/g, '');
-    
-    // Formatear el número peruano
     if (cleaned.length <= 9) {
       return cleaned.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3').trim();
     }
@@ -92,7 +146,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
-    setProfile({ ...profile, phone: formatted });
+    handleInputChange('phone', formatted);
   };
 
   const testWhatsApp = () => {
@@ -124,12 +178,31 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
     );
   }
 
+  if (!profile) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertCircle className="h-5 w-5" />
+          <span>No se pudo cargar el perfil</span>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-        <User className="h-5 w-5" />
-        Editar Perfil
-      </h3>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <User className="h-5 w-5" />
+          Editar Perfil {userRole === 'seller' ? '(Vendedor)' : '(Comprador)'}
+        </h3>
+        {hasChanges && (
+          <div className="flex items-center gap-2 text-amber-600">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-sm">Cambios sin guardar</span>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-6">
         {/* Avatar */}
@@ -153,7 +226,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
             <Input
               id="name"
               value={profile?.name || ''}
-              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+              onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Tu nombre completo"
               required
             />
@@ -169,7 +242,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
                 id="email"
                 type="email"
                 value={profile?.email || ''}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                onChange={(e) => handleInputChange('email', e.target.value)}
                 placeholder="tu@email.com"
                 className="pl-10"
                 required
@@ -230,21 +303,23 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="address" className="text-sm font-medium mb-2 block">
-              Dirección
-            </Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                id="address"
-                value={profile?.address || ''}
-                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                placeholder="Tu dirección"
-                className="pl-10"
-              />
+          {userRole === 'buyer' && (
+            <div>
+              <Label htmlFor="address" className="text-sm font-medium mb-2 block">
+                Dirección
+              </Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="address"
+                  value={profile?.address || ''}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  placeholder="Tu dirección"
+                  className="pl-10"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Campos específicos para sellers */}
@@ -263,7 +338,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
                 <Input
                   id="business_name"
                   value={profile?.business_name || ''}
-                  onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
+                  onChange={(e) => handleInputChange('business_name', e.target.value)}
                   placeholder="Nombre de tu negocio"
                   className="pl-10"
                   required
@@ -278,7 +353,7 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
               <Textarea
                 id="business_description"
                 value={profile?.business_description || ''}
-                onChange={(e) => setProfile({ ...profile, business_description: e.target.value })}
+                onChange={(e) => handleInputChange('business_description', e.target.value)}
                 placeholder="Describe tu negocio..."
                 rows={3}
               />
@@ -286,9 +361,25 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
           </div>
         )}
 
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar cambios'}
+        <div className="flex justify-end gap-3">
+          {hasChanges && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                fetchProfile();
+                setHasChanges(false);
+              }}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+          )}
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || !hasChanges}
+            className={hasChanges ? 'bg-green-600 hover:bg-green-700' : ''}
+          >
+            {saving ? 'Guardando...' : hasChanges ? 'Guardar cambios' : 'Sin cambios'}
           </Button>
         </div>
       </div>

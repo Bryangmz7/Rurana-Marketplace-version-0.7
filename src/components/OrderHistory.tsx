@@ -1,24 +1,27 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Clock, CheckCircle, XCircle, Calendar, Store, MapPin } from 'lucide-react';
+import { Package, Calendar, MapPin, Phone, User, Store, MessageCircle, Eye } from 'lucide-react';
+
+interface OrderHistoryProps {
+  userId: string;
+}
 
 interface Order {
   id: string;
-  store_id: string;
+  order_number: string;
   total: number;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  delivery_address: string | null;
-  customer_notes: string | null;
+  status: string;
   created_at: string;
-  store: {
-    id: string;
-    name: string;
-    logo_url: string | null;
-  };
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  customer_notes: string | null;
+  store_id: string;
+  buyer_id: string;
   order_items: Array<{
     id: string;
     quantity: number;
@@ -29,101 +32,179 @@ interface Order {
       image_urls: string[] | null;
     };
   }>;
-}
-
-interface OrderHistoryProps {
-  userId: string;
+  store?: {
+    id: string;
+    name: string;
+    logo_url: string | null;
+  };
+  buyer_profile?: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  };
+  seller_profile?: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    business_name: string | null;
+    avatar_url: string | null;
+  };
 }
 
 const OrderHistory = ({ userId }: OrderHistoryProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<'buyer' | 'seller' | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchOrderHistory();
-    
-    // Configurar suscripción en tiempo real para actualizaciones de estado
-    const channel = supabase
-      .channel('buyer-orders-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `buyer_id=eq.${userId}`
-        },
-        (payload) => {
-          console.log('Order status updated for buyer:', payload);
-          // Actualizar el estado local cuando el seller cambie el estado
-          setOrders(prev => prev.map(order => 
-            order.id === payload.new.id 
-              ? { ...order, status: payload.new.status }
-              : order
-          ));
-          
-          // Mostrar notificación al comprador cuando cambie el estado
-          const statusTexts = {
-            'pending': 'Pendiente',
-            'confirmed': 'Confirmado',
-            'in_progress': 'En Progreso',
-            'completed': 'Completado',
-            'cancelled': 'Cancelado'
-          };
-          
-          toast({
-            title: "Estado del pedido actualizado",
-            description: `Tu pedido #${payload.new.id.slice(-6)} ahora está: ${statusTexts[payload.new.status as keyof typeof statusTexts]}`,
-          });
-        }
-      )
-      .subscribe();
+    fetchUserRoleAndOrders();
+  }, [userId]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, toast]);
-
-  const fetchOrderHistory = async () => {
+  const fetchUserRoleAndOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          store:stores (
-            id,
-            name,
-            logo_url
-          ),
-          order_items (
-            id,
-            quantity,
-            unit_price,
-            product:products (
+      setLoading(true);
+      console.log('Fetching user role and orders for user:', userId);
+
+      // Obtener el rol del usuario
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user role:', userError);
+        throw userError;
+      }
+
+      const role = userData.role;
+      setUserRole(role);
+      console.log('User role:', role);
+
+      // Obtener órdenes según el rol
+      let ordersQuery;
+      
+      if (role === 'seller') {
+        // Para vendedores: órdenes de sus tiendas
+        const { data: storeData } = await supabase
+          .from('stores')
+          .select('id')
+          .eq('user_id', userId);
+
+        if (!storeData || storeData.length === 0) {
+          console.log('No stores found for seller');
+          setOrders([]);
+          return;
+        }
+
+        const storeIds = storeData.map(store => store.id);
+        
+        ordersQuery = supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              quantity,
+              unit_price,
+              product:products (
+                id,
+                name,
+                image_urls
+              )
+            ),
+            store:stores (
               id,
               name,
-              image_urls
+              logo_url
             )
-          )
-        `)
-        .eq('buyer_id', userId)
+          `)
+          .in('store_id', storeIds);
+      } else {
+        // Para compradores: sus propias órdenes
+        ordersQuery = supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              quantity,
+              unit_price,
+              product:products (
+                id,
+                name,
+                image_urls
+              )
+            ),
+            store:stores (
+              id,
+              name,
+              logo_url
+            )
+          `)
+          .eq('buyer_id', userId);
+      }
+
+      const { data: ordersData, error: ordersError } = await ordersQuery
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      
-      const ordersWithCorrectTypes = (data || []).map(order => ({
-        ...order,
-        status: order.status as Order['status'],
-        store: Array.isArray(order.store) ? order.store[0] : order.store
-      }));
-      
-      setOrders(ordersWithCorrectTypes);
-    } catch (error) {
-      console.error('Error fetching order history:', error);
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        throw ordersError;
+      }
+
+      console.log('Orders fetched:', ordersData?.length || 0);
+
+      // Obtener información de perfiles para datos cruzados
+      const ordersWithProfiles = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          try {
+            let additionalData = {};
+
+            if (role === 'seller') {
+              // Para vendedores, obtener información del comprador
+              const { data: buyerProfile } = await supabase
+                .from('buyer_profiles')
+                .select('name, phone, email, avatar_url')
+                .eq('user_id', order.buyer_id)
+                .maybeSingle();
+
+              additionalData = { buyer_profile: buyerProfile };
+            } else {
+              // Para compradores, obtener información del vendedor
+              const { data: storeOwner } = await supabase
+                .from('stores')
+                .select('user_id')
+                .eq('id', order.store_id)
+                .single();
+
+              if (storeOwner) {
+                const { data: sellerProfile } = await supabase
+                  .from('seller_profiles')
+                  .select('name, phone, email, business_name, avatar_url')
+                  .eq('user_id', storeOwner.user_id)
+                  .maybeSingle();
+
+                additionalData = { seller_profile: sellerProfile };
+              }
+            }
+
+            return { ...order, ...additionalData };
+          } catch (error) {
+            console.error('Error fetching profile data for order:', order.id, error);
+            return order;
+          }
+        })
+      );
+
+      setOrders(ordersWithProfiles);
+    } catch (error: any) {
+      console.error('Error in fetchUserRoleAndOrders:', error);
       toast({
         title: "Error",
-        description: "No se pudo cargar el historial de pedidos",
+        description: `No se pudieron cargar los pedidos: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -131,29 +212,18 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
     }
   };
 
-  const getStatusColor = (status: Order['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in_progress': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed': return 'bg-blue-100 text-blue-800';
+      case 'in_progress': return 'bg-orange-100 text-orange-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusIcon = (status: Order['status']) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'confirmed': return <Package className="h-4 w-4" />;
-      case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'completed': return <CheckCircle className="h-4 w-4" />;
-      case 'cancelled': return <XCircle className="h-4 w-4" />;
-      default: return <Package className="h-4 w-4" />;
-    }
-  };
-
-  const getStatusText = (status: Order['status']) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case 'pending': return 'Pendiente';
       case 'confirmed': return 'Confirmado';
@@ -164,15 +234,34 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
     }
   };
 
-  const getStatusDescription = (status: Order['status']) => {
-    switch (status) {
-      case 'pending': return 'Tu pedido está siendo revisado por el vendedor';
-      case 'confirmed': return 'El vendedor ha confirmado tu pedido y lo está preparando';
-      case 'in_progress': return 'Tu pedido está siendo preparado para el envío';
-      case 'completed': return 'Tu pedido ha sido entregado exitosamente';
-      case 'cancelled': return 'Este pedido fue cancelado';
-      default: return '';
+  const contactPerson = (order: Order) => {
+    const isSellerView = userRole === 'seller';
+    const profile = isSellerView ? order.buyer_profile : order.seller_profile;
+    const phone = isSellerView ? 
+      (order.delivery_phone || profile?.phone) : 
+      profile?.phone;
+    
+    if (!phone) {
+      toast({
+        title: "Sin número de contacto",
+        description: `${isSellerView ? 'El comprador' : 'El vendedor'} no tiene número de WhatsApp registrado`,
+        variant: "destructive",
+      });
+      return;
     }
+
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+    let whatsappNumber = cleanPhone;
+    if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
+      whatsappNumber = '51' + whatsappNumber;
+    }
+
+    const personName = profile?.name || (isSellerView ? 'Cliente' : 'Vendedor');
+    const orderId = order.order_number || order.id.slice(-6);
+    const message = `Hola ${personName}! Te contacto por el pedido #${orderId}. ¿En qué puedo ayudarte?`;
+    
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   if (loading) {
@@ -187,10 +276,17 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Mis Pedidos</h2>
-          <p className="text-gray-600">Historial completo de tus compras • Los estados se actualizan automáticamente</p>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {userRole === 'seller' ? 'Pedidos Recibidos' : 'Mis Pedidos'}
+          </h2>
+          <p className="text-gray-600">
+            {userRole === 'seller' 
+              ? 'Gestiona los pedidos de tus clientes' 
+              : 'Revisa el estado de tus compras'
+            }
+          </p>
         </div>
-        <Button onClick={fetchOrderHistory} variant="outline">
+        <Button onClick={fetchUserRoleAndOrders} variant="outline">
           <Package className="h-4 w-4 mr-2" />
           Actualizar
         </Button>
@@ -200,74 +296,154 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
         <Card>
           <CardContent className="text-center py-12">
             <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes pedidos</h3>
-            <p className="text-gray-600">Cuando realices compras, aparecerán aquí</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {userRole === 'seller' ? 'No hay pedidos recibidos' : 'No hay pedidos'}
+            </h3>
+            <p className="text-gray-600">
+              {userRole === 'seller' 
+                ? 'Los pedidos aparecerán aquí cuando los clientes realicen compras'
+                : 'Tus pedidos aparecerán aquí cuando realices compras'
+              }
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
+        <div className="space-y-4">
           {orders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
-              <CardHeader className="bg-gray-50 border-b">
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                      {order.store.logo_url ? (
-                        <img 
-                          src={order.store.logo_url} 
-                          alt={order.store.name}
-                          className="w-10 h-10 rounded-full object-cover border"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          <Store className="h-5 w-5 text-gray-500" />
-                        </div>
-                      )}
-                      <div>
-                        <CardTitle className="text-lg">
-                          Pedido #{order.id.slice(-6)}
-                        </CardTitle>
-                        <p className="text-sm text-gray-600">de {order.store.name}</p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(order.created_at).toLocaleString('es-PE')}
-                        </div>
-                      </div>
-                    </div>
+                  <div>
+                    <CardTitle className="text-lg">
+                      Pedido #{order.order_number || order.id.slice(-6)}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4" />
+                      {new Date(order.created_at).toLocaleString('es-PE')}
+                    </CardDescription>
                   </div>
-                  
-                  <div className="text-right">
-                    <Badge className={`${getStatusColor(order.status)} border mb-2`}>
-                      {getStatusIcon(order.status)}
-                      <span className="ml-1">{getStatusText(order.status)}</span>
-                    </Badge>
-                    <p className="text-sm text-gray-600 max-w-48 text-right">{getStatusDescription(order.status)}</p>
-                  </div>
+                  <Badge className={getStatusColor(order.status)}>
+                    {getStatusText(order.status)}
+                  </Badge>
                 </div>
               </CardHeader>
-              
-              <CardContent className="p-6 space-y-4">
+
+              <CardContent className="space-y-4">
+                {/* Información de la contraparte (comprador o vendedor) */}
+                {userRole === 'seller' && order.buyer_profile && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Información del Comprador
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="font-medium">Nombre:</span> {order.buyer_profile.name}
+                      </div>
+                      {order.buyer_profile.email && (
+                        <div>
+                          <span className="font-medium">Email:</span> {order.buyer_profile.email}
+                        </div>
+                      )}
+                      {(order.delivery_phone || order.buyer_profile.phone) && (
+                        <div>
+                          <span className="font-medium">Teléfono:</span> {order.delivery_phone || order.buyer_profile.phone}
+                        </div>
+                      )}
+                    </div>
+                    {(order.delivery_phone || order.buyer_profile.phone) && (
+                      <Button
+                        onClick={() => contactPerson(order)}
+                        className="mt-3 bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contactar por WhatsApp
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {userRole === 'buyer' && order.seller_profile && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                      <Store className="h-4 w-4" />
+                      Información del Vendedor
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="font-medium">Vendedor:</span> {order.seller_profile.name}
+                      </div>
+                      {order.seller_profile.business_name && (
+                        <div>
+                          <span className="font-medium">Negocio:</span> {order.seller_profile.business_name}
+                        </div>
+                      )}
+                      {order.seller_profile.email && (
+                        <div>
+                          <span className="font-medium">Email:</span> {order.seller_profile.email}
+                        </div>
+                      )}
+                      {order.seller_profile.phone && (
+                        <div>
+                          <span className="font-medium">Teléfono:</span> {order.seller_profile.phone}
+                        </div>
+                      )}
+                    </div>
+                    {order.seller_profile.phone && (
+                      <Button
+                        onClick={() => contactPerson(order)}
+                        className="mt-3 bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Contactar por WhatsApp
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Información de la tienda */}
+                {order.store && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                      <Store className="h-4 w-4" />
+                      Tienda
+                    </h4>
+                    <div className="flex items-center gap-3">
+                      {order.store.logo_url && (
+                        <img
+                          src={order.store.logo_url}
+                          alt={order.store.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      )}
+                      <span className="font-medium">{order.store.name}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Productos */}
                 <div>
-                  <h4 className="font-medium mb-3 text-gray-900">Productos:</h4>
-                  <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900 mb-2">Productos:</h4>
+                  <div className="space-y-2">
                     {order.order_items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
                         {item.product.image_urls && item.product.image_urls[0] && (
                           <img
                             src={item.product.image_urls[0]}
                             alt={item.product.name}
-                            className="w-14 h-14 object-cover rounded border"
+                            className="w-12 h-12 object-cover rounded"
                           />
                         )}
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{item.product.name}</p>
+                          <p className="font-medium">{item.product.name}</p>
                           <p className="text-sm text-gray-600">
-                            Cantidad: {item.quantity} × S/{item.unit_price.toFixed(2)}
+                            {item.quantity} × S/{item.unit_price.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-semibold">
                             S/{(item.quantity * item.unit_price).toFixed(2)}
                           </p>
                         </div>
@@ -278,31 +454,35 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
 
                 {/* Información de entrega */}
                 {order.delivery_address && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-blue-600 mt-0.5" />
-                      <div>
-                        <h4 className="font-medium text-blue-900 mb-1">Dirección de entrega</h4>
-                        <p className="text-blue-800 text-sm">{order.delivery_address}</p>
-                      </div>
-                    </div>
+                  <div className="bg-amber-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Dirección de entrega
+                    </h4>
+                    <p className="text-amber-800">{order.delivery_address}</p>
+                    {order.delivery_phone && (
+                      <p className="text-sm text-amber-700 mt-1">
+                        <Phone className="h-3 w-3 inline mr-1" />
+                        {order.delivery_phone}
+                      </p>
+                    )}
                   </div>
                 )}
 
+                {/* Notas del cliente */}
                 {order.customer_notes && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium mb-2 text-gray-900">Notas del pedido:</h4>
-                    <p className="text-gray-700 text-sm">{order.customer_notes}</p>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Notas del cliente:</h4>
+                    <p className="text-blue-800 text-sm">{order.customer_notes}</p>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="text-xl font-bold text-gray-900">
-                    Total: S/{order.total.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    🔄 Sincronizado automáticamente con el vendedor
-                  </div>
+                {/* Total */}
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <span className="text-lg font-bold">Total:</span>
+                  <span className="text-xl font-bold text-green-600">
+                    S/{order.total.toFixed(2)}
+                  </span>
                 </div>
               </CardContent>
             </Card>

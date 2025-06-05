@@ -531,6 +531,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      notify_seller_order_confirmed: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       ai_request_status: "pending" | "processing" | "completed" | "failed"
