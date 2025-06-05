@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,7 +54,7 @@ interface Order {
 const OrderHistory = ({ userId }: OrderHistoryProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<'buyer' | 'seller' | null>(null);
+  const [userRole, setUserRole] = useState<'buyer' | 'seller' | 'admin' | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,6 +81,12 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
       const role = userData.role;
       setUserRole(role);
       console.log('User role:', role);
+
+      // Si es admin, no mostrar órdenes por ahora
+      if (role === 'admin') {
+        setOrders([]);
+        return;
+      }
 
       // Obtener órdenes según el rol
       let ordersQuery;
@@ -269,6 +274,23 @@ const OrderHistory = ({ userId }: OrderHistoryProps) => {
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Si es admin, mostrar mensaje especial
+  if (userRole === 'admin') {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Panel de Administrador
+          </h3>
+          <p className="text-gray-600">
+            Como administrador, puedes gestionar todos los aspectos del marketplace desde el panel de administración.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
