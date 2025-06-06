@@ -129,7 +129,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
 
         console.log(`Creating order for store ${storeId} with total: ${total}`);
 
-        // Crear el pedido - order_number se genera automáticamente por trigger
+        // Crear el pedido - el order_number se genera automáticamente por trigger
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -141,7 +141,6 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
             status: 'pending',
             delivery_address: deliveryAddress || null,
             customer_notes: orderNotes || null,
-            order_number: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
           })
           .select()
           .single();
