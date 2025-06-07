@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +27,11 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
   }, [userId, userRole]);
 
   const fetchProfile = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       console.log(`Fetching ${userRole} profile for user:`, userId);
@@ -89,8 +94,14 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
 
   const handleSave = async () => {
     if (!profile || !hasChanges) return;
-    
+
     setSaving(true);
+
+    if (!supabase) {
+      notifySupabaseMissing();
+      setSaving(false);
+      return;
+    }
     try {
       console.log('Saving profile changes:', profile);
       

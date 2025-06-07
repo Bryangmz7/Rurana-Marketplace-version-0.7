@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface CartItem {
@@ -40,6 +40,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const fetchCartItems = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -72,6 +77,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addToCart = async (productId: string, quantity = 1) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -115,6 +124,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const removeFromCart = async (productId: string) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { error } = await supabase
         .from('cart_items')
@@ -139,6 +152,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateQuantity = async (productId: string, quantity: number) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       if (quantity <= 0) {
         await removeFromCart(productId);
@@ -163,6 +180,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const clearCart = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;

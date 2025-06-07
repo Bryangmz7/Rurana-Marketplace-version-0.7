@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,12 @@ const StoreManagement = ({ store, onStoreUpdated }: StoreManagementProps) => {
 
   const handleSave = async () => {
     setLoading(true);
+
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('stores')

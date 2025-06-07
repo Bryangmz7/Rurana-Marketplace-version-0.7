@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Package, DollarSign, Users, TrendingUp } from 'lucide-react';
 
@@ -29,6 +29,11 @@ const StoreOverview = ({ storeId }: StoreOverviewProps) => {
   }, [storeId]);
 
   const fetchStats = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       // Obtener total de productos
       const { data: products, error: productsError } = await supabase

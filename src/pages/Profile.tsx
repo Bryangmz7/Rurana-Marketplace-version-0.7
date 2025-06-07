@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ProfileEditor from '@/components/ProfileEditor';
@@ -24,6 +24,11 @@ const Profile = () => {
   }, []);
 
   const checkUser = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);

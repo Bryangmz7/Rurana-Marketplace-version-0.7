@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StoreSetup from '@/components/StoreSetup';
@@ -50,6 +50,11 @@ const NewSellerDashboard = () => {
   }, []);
 
   const checkUserAndStore = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       

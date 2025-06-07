@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Upload, X, Image } from 'lucide-react';
@@ -25,6 +25,10 @@ const ImageUpload = ({
   const { toast } = useToast();
 
   const uploadImage = async (file: File) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       // Verificar tamaño del archivo (5MB máximo)
       const maxSize = 5 * 1024 * 1024; // 5MB en bytes
@@ -89,6 +93,11 @@ const ImageUpload = ({
 
   const removeImage = async () => {
     if (!currentImage) return;
+
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     
     try {
       const urlParts = currentImage.split('/');

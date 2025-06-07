@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,6 +46,11 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   }, []);
 
   const fetchDepartments = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setDepartmentsLoading(false);
+      return;
+    }
     try {
       console.log('Fetching departments from database...');
       setDepartmentsLoading(true);
@@ -117,6 +122,12 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     }
 
     setLoading(true);
+
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
 
     try {
       // Obtener el nombre del departamento seleccionado (si existe)

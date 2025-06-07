@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,11 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   }, [storeId]);
 
   const fetchOrders = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -130,6 +135,10 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     setUpdatingOrder(orderId);
     try {
       const { error } = await supabase

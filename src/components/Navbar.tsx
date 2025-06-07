@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import NotificationCenter from '@/components/NotificationCenter';
@@ -35,6 +35,11 @@ const Navbar = () => {
     let mounted = true;
     
     const getSession = async () => {
+      if (!supabase) {
+        notifySupabaseMissing();
+        setLoading(false);
+        return;
+      }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -84,6 +89,10 @@ const Navbar = () => {
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       console.log('Fetching profile for user:', userId);
       
@@ -139,6 +148,10 @@ const Navbar = () => {
   };
 
   const handleSignOut = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,11 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
   }, [products, searchQuery]);
 
   const fetchProducts = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('products')
@@ -89,6 +94,11 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
 
   const handleDeleteProduct = async (productId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+      return;
+    }
+
+    if (!supabase) {
+      notifySupabaseMissing();
       return;
     }
 

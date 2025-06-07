@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +51,10 @@ const NotificationCenter = ({ userId }: NotificationCenterProps) => {
   }, [userId]);
 
   const fetchNotifications = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -69,6 +73,10 @@ const NotificationCenter = ({ userId }: NotificationCenterProps) => {
   };
 
   const markAsRead = async (notificationId: string) => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { error } = await supabase
         .from('notifications')
@@ -83,6 +91,10 @@ const NotificationCenter = ({ userId }: NotificationCenterProps) => {
   };
 
   const markAllAsRead = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     try {
       const { error } = await supabase
         .from('notifications')

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import { X, Plus, Palette, Ruler, Package, Clock, DollarSign } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 
@@ -107,6 +107,12 @@ const CustomProductForm = ({ storeId, onProductCreated, onCancel }: CustomProduc
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    if (!supabase) {
+      notifySupabaseMissing();
+      setLoading(false);
+      return;
+    }
 
     try {
       // Convertir las opciones de personalización al formato JSON correcto

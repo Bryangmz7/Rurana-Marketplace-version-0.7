@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/components/CartContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifySupabaseMissing } from '@/integrations/supabase/client';
 import CartItem from './CartItem';
 import { Input } from './ui/input';
 
@@ -22,6 +22,10 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
   const [orderNotes, setOrderNotes] = useState('');
 
   const handleCheckout = async () => {
+    if (!supabase) {
+      notifySupabaseMissing();
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {

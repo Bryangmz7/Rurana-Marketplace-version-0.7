@@ -62,12 +62,21 @@ This project is built with:
 
 ## Configuration
 
-Create a `.env` file in the project root and define your Supabase credentials.
-Use `.env.example` as a starting point:
+Before running the app you need to create a `.env` file in the project root.
+Use `.env.example` as a starting point and replace the placeholder values with
+your Supabase credentials:
 
 ```
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Once the `.env` file is in place you can install dependencies and start the
+development server:
+
+```bash
+npm install
+npm run dev
 ```
 
 
