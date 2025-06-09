@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
@@ -34,7 +35,7 @@ interface SellerProfile {
 const SellerDashboard = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();

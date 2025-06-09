@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { Search, ShoppingCart, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ interface SellerProfile {
 }
 
 const Navbar = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
