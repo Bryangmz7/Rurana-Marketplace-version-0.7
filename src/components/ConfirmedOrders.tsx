@@ -14,6 +14,8 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'cancelled';
   delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_notes: string | null;
   customer_notes: string | null;
   created_at: string;
   order_items: Array<{
@@ -193,7 +195,8 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   };
 
   const contactBuyer = (order: Order) => {
-    if (!order.buyer_profile?.phone) {
+    const phone = order.delivery_phone || order.buyer_profile?.phone;
+    if (!phone) {
       toast({
         title: "Sin número de contacto",
         description: "Este comprador no tiene número de WhatsApp registrado",
@@ -202,13 +205,14 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
       return;
     }
 
-    const cleanPhone = order.buyer_profile.phone.replace(/[^\d]/g, '');
+    const cleanPhone = phone.replace(/[^\d]/g, '');
     let whatsappNumber = cleanPhone;
     if (!whatsappNumber.startsWith('51') && whatsappNumber.length === 9) {
       whatsappNumber = '51' + whatsappNumber;
     }
 
-    const message = `Hola ${order.buyer_profile.name}, te contacto por tu pedido #${order.id.slice(-6)} por S/${order.total}. ¿En qué puedo ayudarte?`;
+    const customerName = order.buyer_profile?.name || 'Cliente';
+    const message = `Hola ${customerName}, te contacto por tu pedido #${order.id.slice(-6)} por S/${order.total}. ¿En qué puedo ayudarte?`;
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -282,11 +286,16 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                     </div>
                     <div className="space-y-2">
                       <div className="font-medium">{order.buyer_profile?.name || 'Usuario'}</div>
-                      {order.buyer_profile?.phone && (
+                      {(order.delivery_phone || order.buyer_profile?.phone) && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm">
                             <Phone className="h-4 w-4 text-gray-500" />
-                            <span>{order.buyer_profile.phone}</span>
+                            <span>
+                              {order.delivery_phone || order.buyer_profile?.phone}
+                            </span>
+                            {order.delivery_phone && order.buyer_profile?.phone && order.delivery_phone !== order.buyer_profile.phone && (
+                              <span className="text-xs text-gray-500 ml-2">Perfil: {order.buyer_profile.phone}</span>
+                            )}
                           </div>
                           <Button
                             size="sm"
@@ -298,10 +307,23 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                           </Button>
                         </div>
                       )}
+                      {!(order.delivery_phone || order.buyer_profile?.phone) && (
+                        <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                          ⚠️ Este cliente no tiene número de WhatsApp registrado
+                        </div>
+                      )}
                       {order.delivery_address && (
                         <div className="flex items-start gap-2 text-sm">
                           <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                          <span className="text-gray-600">{order.delivery_address}</span>
+                          <div>
+                            <span className="text-gray-600">{order.delivery_address}</span>
+                            {order.delivery_phone && (
+                              <p className="text-gray-600">Teléfono: {order.delivery_phone}</p>
+                            )}
+                            {order.delivery_notes && (
+                              <p className="text-gray-600 italic">Notas: {order.delivery_notes}</p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

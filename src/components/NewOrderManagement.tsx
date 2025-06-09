@@ -13,6 +13,8 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'cancelled' | 'shipped' | 'delivered';
   delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_notes?: string | null;
   customer_notes: string | null;
   created_at: string;
   order_items: Array<{
@@ -320,7 +322,7 @@ const NewOrderManagement = ({ storeId }: { storeId: string }) => {
   };
 
   const contactBuyer = (order: Order) => {
-    const phone = order.buyer_profile?.phone;
+    const phone = order.delivery_phone || order.buyer_profile?.phone;
     if (!phone) {
       toast({
         title: "Sin número de contacto",
@@ -433,7 +435,7 @@ const NewOrderManagement = ({ storeId }: { storeId: string }) => {
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold text-blue-900 text-lg">Información del Cliente</h4>
                         {/* Botón de WhatsApp siempre visible si hay teléfono */}
-                        {order.buyer_profile?.phone && (
+                        {(order.delivery_phone || order.buyer_profile?.phone) && (
                           <Button
                             onClick={() => contactBuyer(order)}
                             className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
@@ -462,11 +464,16 @@ const NewOrderManagement = ({ storeId }: { storeId: string }) => {
                         </div>
                         
                         <div className="space-y-2">
-                          {order.buyer_profile?.phone ? (
+                          {(order.delivery_phone || order.buyer_profile?.phone) ? (
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4 text-blue-600" />
                               <span className="font-medium">Teléfono:</span>
-                              <span className="text-gray-700">{order.buyer_profile.phone}</span>
+                              <span className="text-gray-700">
+                                {order.delivery_phone || order.buyer_profile?.phone}
+                              </span>
+                              {order.delivery_phone && order.buyer_profile?.phone && order.delivery_phone !== order.buyer_profile.phone && (
+                                <span className="text-xs text-gray-500 ml-2">Perfil: {order.buyer_profile.phone}</span>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-gray-500">
@@ -495,13 +502,19 @@ const NewOrderManagement = ({ storeId }: { storeId: string }) => {
                             <div>
                               <span className="font-medium text-green-800">Dirección de entrega:</span>
                               <p className="text-gray-700 mt-1">{order.delivery_address}</p>
+                              {order.delivery_phone && (
+                                <p className="text-gray-700 text-sm mt-1">Teléfono: {order.delivery_phone}</p>
+                              )}
+                              {order.delivery_notes && (
+                                <p className="text-gray-600 text-sm mt-1 italic">Notas: {order.delivery_notes}</p>
+                              )}
                             </div>
                           </div>
                         </div>
                       )}
                       
                       {/* Mensaje si no hay WhatsApp */}
-                      {!order.buyer_profile?.phone && (
+                      {!(order.delivery_phone || order.buyer_profile?.phone) && (
                         <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
                           <p className="text-sm text-yellow-800">
                             ⚠️ Este cliente no tiene número de WhatsApp registrado
