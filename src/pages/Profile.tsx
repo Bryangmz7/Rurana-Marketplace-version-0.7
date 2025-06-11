@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
@@ -13,7 +12,7 @@ import { User, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const Profile = () => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<'buyer' | 'seller' | 'admin'>('buyer');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

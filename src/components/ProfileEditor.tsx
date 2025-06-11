@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,12 +15,8 @@ interface ProfileEditorProps {
   userRole: 'buyer' | 'seller';
 }
 
-type BuyerProfile = Database['public']['Tables']['buyer_profiles']['Row'];
-type SellerProfile = Database['public']['Tables']['seller_profiles']['Row'];
-type Profile = BuyerProfile | SellerProfile;
-
 const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -132,8 +127,8 @@ const ProfileEditor = ({ userId, userRole }: ProfileEditorProps) => {
     }
   };
 
-  const handleInputChange = (field: keyof Profile | string, value: string) => {
-    setProfile(prev => (prev ? { ...prev, [field]: value } as Profile : prev));
+  const handleInputChange = (field: string, value: string) => {
+    setProfile((prev: any) => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 

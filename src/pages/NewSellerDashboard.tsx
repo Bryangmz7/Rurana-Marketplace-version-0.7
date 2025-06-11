@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,8 +9,11 @@ import StoreNavigation from '@/components/StoreNavigation';
 import StoreOverview from '@/components/StoreOverview';
 import ProductManagement from '@/components/ProductManagement';
 import StoreManagement from '@/components/StoreManagement';
-import OrderManagement from '@/components/OrderManagement';
+import NewOrderManagement from '@/components/NewOrderManagement';
+import CustomProductForm from '@/components/CustomProductForm';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Plus, Package, Settings, BarChart3, ShoppingBag } from 'lucide-react';
 
 interface Store {
   id: string;
@@ -31,12 +35,13 @@ interface SellerProfile {
   verified: boolean;
 }
 
-const SellerDashboard = () => {
+const NewSellerDashboard = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showProductForm, setShowProductForm] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -123,8 +128,27 @@ const SellerDashboard = () => {
     setStore(updatedStore);
   };
 
+  const handleProductCreated = () => {
+    setShowProductForm(false);
+    setActiveTab('products');
+    toast({
+      title: "Producto creado",
+      description: "El producto personalizable ha sido agregado a tu tienda",
+    });
+  };
+
   const renderTabContent = () => {
     if (!store) return null;
+
+    if (showProductForm) {
+      return (
+        <CustomProductForm
+          storeId={store.id}
+          onProductCreated={handleProductCreated}
+          onCancel={() => setShowProductForm(false)}
+        />
+      );
+    }
 
     switch (activeTab) {
       case 'overview':
@@ -133,8 +157,8 @@ const SellerDashboard = () => {
         return <ProductManagement store={store} />;
       case 'store':
         return <StoreManagement store={store} onStoreUpdated={handleStoreUpdated} />;
-      case 'customers':
-        return <OrderManagement storeId={store.id} />;
+      case 'orders':
+        return <NewOrderManagement storeId={store.id} />;
       default:
         return <StoreOverview storeId={store.id} />;
     }
@@ -177,11 +201,80 @@ const SellerDashboard = () => {
         </div>
       ) : (
         <>
-          <StoreNavigation 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            storeName={store.name}
-          />
+          {/* Navigation mejorada */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between py-4">
+                <div className="flex items-center space-x-8">
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900">{store.name}</h1>
+                    <p className="text-sm text-gray-500">Panel de gestión</p>
+                  </div>
+                  
+                  <nav className="flex space-x-8">
+                    <button
+                      onClick={() => setActiveTab('overview')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                        activeTab === 'overview'
+                          ? 'bg-primary text-white'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Resumen
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveTab('products')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                        activeTab === 'products'
+                          ? 'bg-primary text-white'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Productos
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveTab('orders')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                        activeTab === 'orders'
+                          ? 'bg-primary text-white'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <ShoppingBag className="h-4 w-4 mr-2" />
+                      Pedidos
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveTab('store')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                        activeTab === 'store'
+                          ? 'bg-primary text-white'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configuración
+                    </button>
+                  </nav>
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <Button
+                    onClick={() => setShowProductForm(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Producto Personalizable
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {renderTabContent()}
           </div>
@@ -193,4 +286,4 @@ const SellerDashboard = () => {
   );
 };
 
-export default SellerDashboard;
+export default NewSellerDashboard;
