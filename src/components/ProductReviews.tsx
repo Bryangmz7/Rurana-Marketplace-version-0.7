@@ -39,7 +39,8 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
       .eq("product_id", productId)
       .order("created_at", { ascending: false });
 
-    if (!error && data) setReviews(data as Review[]);
+    // Fix: cast via unknown to Review[]
+    if (!error && data) setReviews(data as unknown as Review[]);
     setLoading(false);
   };
 
