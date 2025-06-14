@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { supabase } from '@/integrations/supabase/client';
-import { Icons } from './Icons';
+// import { Icons } from './Icons'; // Removed unused import
 import LoginForm from './LoginForm';
 import SignupForm from './SignupForm';
 
