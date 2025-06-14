@@ -30,9 +30,7 @@ const ProductReviewForm: React.FC<ProductReviewFormProps> = ({
           type="button"
           key={num}
           onClick={() => setRating(num)}
-          className={`transition-colors ${
-            rating >= num ? "text-yellow-500" : "text-gray-400"
-          }`}
+          className={`transition-colors ${rating >= num ? "text-yellow-500" : "text-gray-400"}`}
         >
           <Star fill={rating >= num ? "#eab308" : "none"} className="h-6 w-6" />
         </button>
@@ -54,8 +52,9 @@ const ProductReviewForm: React.FC<ProductReviewFormProps> = ({
         return;
       }
       // No permitir spameo
+      // @ts-ignore: "reviews" table no está en las types
       const { data: existing } = await supabase
-        .from("reviews")
+        .from("reviews" as any)
         .select("id")
         .eq("reviewer_id", user.id)
         .eq("product_id", productId)
@@ -68,7 +67,8 @@ const ProductReviewForm: React.FC<ProductReviewFormProps> = ({
         });
         return;
       }
-      const { error } = await supabase.from("reviews").insert({
+      // @ts-ignore: "reviews" table no está aún en las types
+      const { error } = await supabase.from("reviews" as any).insert({
         reviewer_id: user.id,
         product_id: productId,
         order_id: orderId ?? null,

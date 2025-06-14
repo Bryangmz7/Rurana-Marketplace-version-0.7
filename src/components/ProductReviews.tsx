@@ -26,9 +26,10 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
 
   const fetchReviews = async () => {
     setLoading(true);
-    // Trae reviews más nombre/avatar del reviewer
+    // TypeScript workaround: "reviews" table exists in Supabase but not in generated types yet.
+    // @ts-ignore
     const { data, error } = await supabase
-      .from("reviews")
+      .from("reviews" as any)
       .select(
         `
         id, rating, comment, created_at, 
