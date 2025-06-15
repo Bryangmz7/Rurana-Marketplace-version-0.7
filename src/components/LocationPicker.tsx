@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as mapboxgl from 'mapbox-gl';
+import type { Map, Marker } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -14,8 +14,8 @@ interface LocationPickerProps {
 
 const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPickerProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const marker = useRef<mapboxgl.Marker | null>(null);
+  const map = useRef<Map | null>(null);
+  const marker = useRef<Marker | null>(null);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -28,33 +28,52 @@ const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPick
     
     if (map.current) return; // initialize map only once
 
-    (mapboxgl as any).accessToken = mapboxToken;
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [-77.0428, -12.0464], // Lima, Peru
-      zoom: 12,
-    });
+    let mapInstance: Map | null = null;
 
-    const mapInstance = map.current;
+    const initializeMap = async () => {
+      // Dynamically import mapbox-gl library
+      const mapboxgl = (await import('mapbox-gl')).default;
 
-    mapInstance.on('click', (e) => {
-      const { lng, lat } = e.lngLat;
+      (mapboxgl as any).accessToken = mapboxToken;
       
-      if (marker.current) {
-        marker.current.setLngLat([lng, lat]);
-      } else {
-        marker.current = new mapboxgl.Marker()
-          .setLngLat([lng, lat])
-          .addTo(mapInstance);
-      }
-      
-      reverseGeocode(lng, lat);
+      mapInstance = new mapboxgl.Map({
+        container: mapContainer.current!,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [-77.0428, -12.0464], // Lima, Peru
+        zoom: 12,
+      });
+
+      map.current = mapInstance;
+
+      mapInstance.on('click', (e) => {
+        const { lng, lat } = e.lngLat;
+        
+        if (marker.current) {
+          marker.current.setLngLat([lng, lat]);
+        } else {
+          marker.current = new mapboxgl.Marker()
+            .setLngLat([lng, lat])
+            .addTo(mapInstance!);
+        }
+        
+        reverseGeocode(lng, lat);
+      });
+    };
+
+    initializeMap().catch(error => {
+      console.error("Failed to initialize map:", error);
+      toast({
+          title: "Error al cargar el mapa",
+          description: "No se pudo inicializar el mapa. Intenta recargar la página.",
+          variant: "destructive"
+      })
     });
 
     return () => {
+      if (mapInstance) {
         mapInstance.remove();
-        map.current = null;
+      }
+      map.current = null;
     }
   }, [mapboxToken]);
 
