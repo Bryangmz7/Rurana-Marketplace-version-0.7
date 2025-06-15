@@ -1,34 +1,40 @@
 
-import React from "react";
-import { AuthProvider } from "@/context/AuthContext";
-import { ShopProvider } from "@/context/ShopContext";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import LandingPage from "@/pages/LandingPage";
-import AuthPage from "@/pages/AuthPage";
-import Marketplace from "@/pages/Marketplace";
-import ProfilePage from "@/pages/ProfilePage";
-import SellerDashboard from "@/pages/SellerDashboard";
-import AdminPage from "@/pages/AdminPage";
-import CartPage from "@/pages/CartPage";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { CartProvider } from "@/components/CartContext";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Marketplace from "./pages/Marketplace";
+import SellerDashboard from "./pages/SellerDashboard";
+import Profile from "./pages/Profile";
+import NotFound from "./pages/NotFound";
 
-// Rutas simuladas
-const App = () => (
-  <AuthProvider>
-    <ShopProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/seller-dashboard" element={<SellerDashboard />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </BrowserRouter>
-    </ShopProvider>
-  </AuthProvider>
-);
+const queryClient = new QueryClient();
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CartProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/seller-dashboard" element={<SellerDashboard />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CartProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
