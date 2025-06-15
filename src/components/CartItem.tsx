@@ -1,21 +1,9 @@
-
 import { Plus, Minus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CartItem as CartItemType } from '@/types/cart';
 
 interface CartItemProps {
-  item: {
-    id: string;
-    product_id: string;
-    quantity: number;
-    product: {
-      id: string;
-      name: string;
-      price: number;
-      image_urls: string[];
-      store_id: string;
-      stock: number;
-    };
-  };
+  item: CartItemType;
   onQuantityChange: (productId: string, newQuantity: number) => void;
   onRemove: (productId: string) => void;
 }

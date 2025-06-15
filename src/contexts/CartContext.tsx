@@ -1,33 +1,9 @@
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext } from 'react';
 import { useOptimizedCart } from '@/components/OptimizedCartContext';
+import { CartItem, CartContextType } from '@/types/cart';
 
-interface CartItem {
-  id: string;
-  product_id: string;
-  quantity: number;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    image_urls: string[];
-    store_id: string;
-    stock: number;
-  };
-}
-
-interface CartContextType {
-  items: CartItem[];
-  addToCart: (productId: string, quantity?: number) => Promise<void>;
-  removeFromCart: (productId: string) => Promise<void>;
-  updateQuantity: (productId: string, quantity: number) => Promise<void>;
-  clearCart: () => Promise<void>;
-  total: number;
-  itemCount: number;
-  loading: boolean;
-}
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
+export const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const optimizedCart = useOptimizedCart();
@@ -62,12 +38,4 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </CartContext.Provider>
   );
-};
-
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
 };
