@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import mapboxgl, { Marker } from 'mapbox-gl';
+import * as mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,7 @@ interface LocationPickerProps {
 const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPickerProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const marker = useRef<Marker | null>(null);
+  const marker = useRef<mapboxgl.Marker | null>(null);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
