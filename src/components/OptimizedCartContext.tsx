@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +12,8 @@ interface CartItem {
     name: string;
     price: number;
     image_urls: string[];
+    stock: number;
+    store_id: string;
     store: {
       name: string;
     };
@@ -58,6 +59,8 @@ export const OptimizedCartProvider: React.FC<{ children: React.ReactNode }> = ({
             name,
             price,
             image_urls,
+            stock,
+            store_id,
             store:stores(name)
           )
         `)
