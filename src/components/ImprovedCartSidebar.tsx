@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, MapPin } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
@@ -9,6 +10,8 @@ import CartItem from './CartItem';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import LocationPicker from './LocationPicker';
 
 interface ImprovedCartSidebarProps {
   isOpen: boolean;
@@ -25,6 +28,8 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
     notes: ''
   });
   const [orderNotes, setOrderNotes] = useState('');
+  const [showMap, setShowMap] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState('');
 
   const handleCheckout = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -210,6 +215,11 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
     }
   };
 
+  const handleLocationSelect = (address: string) => {
+    setDeliveryData(prev => ({ ...prev, address }));
+    setShowMap(false);
+  };
+
   const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
   const storeCount = new Set(items.map(item => item.product.store_id)).size;
   const estimatedShipping = storeCount * 10; // S/10 por tienda
@@ -253,17 +263,59 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
             <div className="space-y-4 mb-4">
               <h3 className="text-lg font-semibold">Información de entrega</h3>
               
+              <div className="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800 mb-2">
+                  Puedes ingresar tu dirección manualmente o seleccionarla en el mapa para mayor precisión.
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="mapbox-token" className="text-blue-900 font-medium">Token de Mapbox</Label>
+                  <Input
+                    id="mapbox-token"
+                    placeholder="Pega tu token público de Mapbox"
+                    value={mapboxToken}
+                    onChange={(e) => setMapboxToken(e.target.value)}
+                    className="bg-white"
+                  />
+                  <p className="text-xs text-blue-700">
+                    Necesario para usar el mapa. Consíguelo gratis en <a href="https://account.mapbox.com/access-tokens" target="_blank" rel="noopener noreferrer" className="underline font-semibold">tu cuenta de Mapbox</a>.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label htmlFor="delivery-address">Dirección de entrega *</Label>
-                  <Textarea
-                    id="delivery-address"
-                    placeholder="Ingresa tu dirección completa..."
-                    value={deliveryData.address}
-                    onChange={(e) => setDeliveryData(prev => ({ ...prev, address: e.target.value }))}
-                    rows={2}
-                    required
-                  />
+                  <div className="flex items-start gap-2">
+                    <Textarea
+                      id="delivery-address"
+                      placeholder="Ingresa tu dirección o selecciónala en el mapa..."
+                      value={deliveryData.address}
+                      onChange={(e) => setDeliveryData(prev => ({ ...prev, address: e.target.value }))}
+                      rows={3}
+                      required
+                      className="flex-grow"
+                    />
+                    <Dialog open={showMap} onOpenChange={setShowMap}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="icon" disabled={!mapboxToken.trim()}>
+                          <MapPin className="h-5 w-5" />
+                          <span className="sr-only">Elegir en el mapa</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[800px]">
+                        <DialogHeader>
+                          <DialogTitle>Selecciona tu ubicación de entrega</DialogTitle>
+                        </DialogHeader>
+                        {mapboxToken.trim() && (
+                          <LocationPicker
+                            mapboxToken={mapboxToken}
+                            onLocationSelect={handleLocationSelect}
+                            onClose={() => setShowMap(false)}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
                 
                 <div className="space-y-1">
