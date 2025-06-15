@@ -28,7 +28,7 @@ const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPick
     
     if (map.current) return; // initialize map only once
 
-    mapboxgl.accessToken = mapboxToken;
+    (mapboxgl as any).accessToken = mapboxToken;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v11',
