@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -9,6 +10,7 @@ import CartItem from './CartItem';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ImprovedCartSidebarProps {
   isOpen: boolean;
@@ -237,16 +239,18 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-              {items.map((item) => (
-                <CartItem 
-                  key={item.product.id} 
-                  item={item}
-                  onQuantityChange={updateQuantity}
-                  onRemove={removeFromCart}
-                />
-              ))}
-            </div>
+            <ScrollArea className="flex-1 mb-4">
+              <div className="space-y-4 pr-4">
+                {items.map((item) => (
+                  <CartItem 
+                    key={item.product.id} 
+                    item={item}
+                    onQuantityChange={updateQuantity}
+                    onRemove={removeFromCart}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
 
             <Separator className="mb-4" />
 

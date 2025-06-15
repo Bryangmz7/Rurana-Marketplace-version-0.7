@@ -25,8 +25,9 @@ const HeroSection = () => {
             <Button 
               size="lg" 
               className="bg-primary hover:bg-primary-600 text-white px-8 py-4 text-lg rounded-xl transition-all duration-200 hover:scale-105"
+              onClick={() => document.getElementById('try-ai')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              Crear mi producto
+              PROBAR IA
             </Button>
           </div>
 
