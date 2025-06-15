@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -6,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import CartItem from './CartItem';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Label } from './ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import CartItemsList from './CartItemsList';
+import DeliveryInformation from './DeliveryInformation';
+import CartTotals from './CartTotals';
 
 interface ImprovedCartSidebarProps {
   isOpen: boolean;
@@ -212,11 +209,6 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
     }
   };
 
-  const total = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const storeCount = new Set(items.map(item => item.product.store_id)).size;
-  const estimatedShipping = storeCount * 10; // S/10 por tienda
-  const finalTotal = total + estimatedShipping;
-
   return (
     <div
       className={`fixed top-0 right-0 w-full sm:w-96 h-full bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
@@ -239,101 +231,29 @@ const ImprovedCartSidebar = ({ isOpen, onClose }: ImprovedCartSidebarProps) => {
           </div>
         ) : (
           <>
-            <ScrollArea className="flex-1 mb-4">
-              <div className="space-y-4 pr-4">
-                {items.map((item) => (
-                  <CartItem 
-                    key={item.product.id} 
-                    item={item}
-                    onQuantityChange={updateQuantity}
-                    onRemove={removeFromCart}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
+            <CartItemsList
+              items={items}
+              onQuantityChange={updateQuantity}
+              onRemove={removeFromCart}
+            />
 
             <Separator className="mb-4" />
 
-            <div className="space-y-4 mb-4">
-              <h3 className="text-lg font-semibold">Información de entrega</h3>
-              
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="delivery-address">Dirección de entrega *</Label>
-                  <Textarea
-                    id="delivery-address"
-                    placeholder="Ingresa tu dirección completa, distrito, y referencias..."
-                    value={deliveryData.address}
-                    onChange={(e) => setDeliveryData(prev => ({ ...prev, address: e.target.value }))}
-                    rows={3}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="delivery-phone">Teléfono de contacto</Label>
-                  <Input
-                    id="delivery-phone"
-                    type="tel"
-                    placeholder="Número de WhatsApp preferible"
-                    value={deliveryData.phone}
-                    onChange={(e) => setDeliveryData(prev => ({ ...prev, phone: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="delivery-notes">Notas de entrega</Label>
-                  <Input
-                    id="delivery-notes"
-                    placeholder="Referencias adicionales..."
-                    value={deliveryData.notes}
-                    onChange={(e) => setDeliveryData(prev => ({ ...prev, notes: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="order-notes">Notas del pedido</Label>
-                  <Input
-                    id="order-notes"
-                    placeholder="Comentarios especiales..."
-                    value={orderNotes}
-                    onChange={(e) => setOrderNotes(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+            <DeliveryInformation
+              deliveryData={deliveryData}
+              setDeliveryData={setDeliveryData}
+              orderNotes={orderNotes}
+              setOrderNotes={setOrderNotes}
+            />
 
             <Separator className="mb-4" />
 
-            <div className="space-y-4">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>S/{total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Envío ({storeCount} tienda{storeCount > 1 ? 's' : ''}):</span>
-                  <span>S/{estimatedShipping.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-lg border-t pt-2">
-                  <span>Total:</span>
-                  <span>S/{finalTotal.toFixed(2)}</span>
-                </div>
-              </div>
-              
-              <Button
-                onClick={handleCheckout}
-                disabled={isProcessing || !deliveryData.address.trim()}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                size="lg"
-              >
-                {isProcessing ? 'Procesando...' : 'Realizar Pedido'}
-              </Button>
-              
-              <p className="text-xs text-gray-500 text-center">
-                Los pedidos se envían por separado desde cada tienda
-              </p>
-            </div>
+            <CartTotals
+              items={items}
+              isProcessing={isProcessing}
+              deliveryAddress={deliveryData.address}
+              onCheckout={handleCheckout}
+            />
           </>
         )}
       </div>
