@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,7 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import MarketplaceHeader from '@/components/MarketplaceHeader';
 import MarketplaceLayout from '@/components/MarketplaceLayout';
-import CartSidebar from '@/components/CartSidebar';
+import ImprovedCartSidebar from '@/components/ImprovedCartSidebar';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
 import { useOptimizedCart } from '@/components/OptimizedCartContext';
@@ -185,7 +186,7 @@ const Marketplace = () => {
         onClearFilters={clearFilters}
       />
       
-      <CartSidebar isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <ImprovedCartSidebar isOpen={cartOpen} onClose={() => setCartOpen(false)} />
       <Footer />
     </div>
   );

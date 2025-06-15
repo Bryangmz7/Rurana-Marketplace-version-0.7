@@ -3,20 +3,9 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Store, MapPin, Clock, Package, Eye, ShoppingCart } from 'lucide-react';
+import { Star, Store as StoreIcon, MapPin, Clock, Package, Eye, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-interface Store {
-  id: string;
-  name: string;
-  description: string;
-  logo_url?: string;
-  rating: number;
-  category?: string;
-  department?: string;
-  created_at: string;
-  product_count?: number;
-}
+import { Store } from '@/types/store';
 
 interface ImprovedStoreCardProps {
   store: Store;
@@ -60,7 +49,7 @@ const ImprovedStoreCard = ({ store, onAddToCart }: ImprovedStoreCardProps) => {
                 />
               ) : (
                 <div className="w-12 h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full flex items-center justify-center border-2 border-gray-200 group-hover:border-primary/30 transition-colors">
-                  <Store className="h-6 w-6 text-primary" />
+                  <StoreIcon className="h-6 w-6 text-primary" />
                 </div>
               )}
               <div>
@@ -103,7 +92,7 @@ const ImprovedStoreCard = ({ store, onAddToCart }: ImprovedStoreCardProps) => {
                 <span>Desde {new Date(store.created_at).getFullYear()}</span>
               </div>
               
-              {store.product_count !== undefined && (
+              {store.product_count !== undefined && store.product_count > 0 && (
                 <div className="flex items-center gap-1">
                   <Package className="h-4 w-4" />
                   <span>{store.product_count} productos</span>
