@@ -30,44 +30,46 @@ const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPick
     let mapInstance: Map | null = null;
 
     const initializeMap = async () => {
-      // Dynamically import mapbox-gl library and its CSS
-      await import('mapbox-gl/dist/mapbox-gl.css');
-      const mapboxgl = (await import('mapbox-gl')).default;
+      try {
+        // Dynamically import mapbox-gl library and its CSS
+        await import('mapbox-gl/dist/mapbox-gl.css');
+        const mapboxgl = (await import('mapbox-gl')).default;
 
-      (mapboxgl as any).accessToken = mapboxToken;
-      
-      mapInstance = new mapboxgl.Map({
-        container: mapContainer.current!,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [-77.0428, -12.0464], // Lima, Peru
-        zoom: 12,
-      });
-
-      map.current = mapInstance;
-
-      mapInstance.on('click', (e) => {
-        const { lng, lat } = e.lngLat;
+        (mapboxgl as any).accessToken = mapboxToken;
         
-        if (marker.current) {
-          marker.current.setLngLat([lng, lat]);
-        } else {
-          marker.current = new mapboxgl.Marker()
-            .setLngLat([lng, lat])
-            .addTo(mapInstance!);
-        }
-        
-        reverseGeocode(lng, lat);
-      });
-    };
+        mapInstance = new mapboxgl.Map({
+          container: mapContainer.current!,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [-77.0428, -12.0464], // Lima, Peru
+          zoom: 12,
+        });
 
-    initializeMap().catch(error => {
-      console.error("Failed to initialize map:", error);
-      toast({
+        map.current = mapInstance;
+
+        mapInstance.on('click', (e) => {
+          const { lng, lat } = e.lngLat;
+          
+          if (marker.current) {
+            marker.current.setLngLat([lng, lat]);
+          } else {
+            marker.current = new mapboxgl.Marker()
+              .setLngLat([lng, lat])
+              .addTo(mapInstance!);
+          }
+          
+          reverseGeocode(lng, lat);
+        });
+      } catch (error) {
+        console.error("Failed to initialize map:", error);
+        toast({
           title: "Error al cargar el mapa",
           description: "No se pudo inicializar el mapa. Intenta recargar la página.",
           variant: "destructive"
-      })
-    });
+        });
+      }
+    };
+
+    initializeMap();
 
     return () => {
       if (mapInstance) {
@@ -75,7 +77,7 @@ const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPick
       }
       map.current = null;
     }
-  }, [mapboxToken]);
+  }, [mapboxToken, toast]);
 
   const reverseGeocode = async (lng: number, lat: number) => {
     setLoading(true);
