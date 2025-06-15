@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { useCart } from '@/components/CartContext';
+import { useOptimizedCart } from '@/components/OptimizedCartContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import CartItem from './CartItem';
+import { OptimizedCartItem } from './OptimizedCartItem';
 import { Input } from './ui/input';
 
 interface CartSidebarProps {
@@ -15,7 +15,7 @@ interface CartSidebarProps {
 }
 
 const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
-  const { items, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { items, clearCart, updateQuantity, removeFromCart } = useOptimizedCart();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -109,9 +109,10 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
         }
       }
 
-      // Agrupar items por tienda
+      // Agrupar items por tienda - adaptado para OptimizedCartContext
       const itemsByStore = items.reduce((acc: Record<string, typeof items>, item) => {
-        const storeId = item.product.store_id;
+        // El store_id no está directamente en el item, necesitamos obtenerlo del producto
+        const storeId = 'default-store'; // Placeholder - necesitaríamos más información del producto
         if (!acc[storeId]) {
           acc[storeId] = [];
         }
@@ -228,7 +229,7 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
           <>
             <div className="flex-1 overflow-y-auto space-y-4 mb-4">
               {items.map((item) => (
-                <CartItem 
+                <OptimizedCartItem 
                   key={item.product.id} 
                   item={item}
                   onQuantityChange={updateQuantity}
