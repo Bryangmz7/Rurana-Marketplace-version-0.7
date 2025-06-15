@@ -61,9 +61,7 @@ export const PremiumProductCard = memo<PremiumProductCardProps>(({
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const cache = useIntellig
-
-entCache<boolean>();
+  const cache = useIntelligentCache<boolean>();
   
   const mainImage = product.image_urls?.[currentImageIndex] || product.image_urls?.[0] || '';
   

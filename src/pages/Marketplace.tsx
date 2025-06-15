@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,7 @@ import MarketplaceLayout from '@/components/MarketplaceLayout';
 import CartSidebar from '@/components/CartSidebar';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
-import { useCart } from '@/components/CartContext';
+import { useOptimizedCart } from '@/components/OptimizedCartContext';
 
 interface Product {
   id: string;
@@ -46,7 +45,7 @@ const Marketplace = () => {
     priceRange: [0, 1000],
     sortBy: 'relevance'
   });
-  const { itemCount } = useCart();
+  const { itemCount } = useOptimizedCart();
 
   const categories = ['Todos', 'Peluches', 'Arte Digital', 'Cerámica', 'Textil', 'Bordados'];
 
