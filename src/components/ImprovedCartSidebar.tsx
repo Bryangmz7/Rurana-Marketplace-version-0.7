@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { useCart } from '@/components/CartContext';
+import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CartItem from './CartItem';

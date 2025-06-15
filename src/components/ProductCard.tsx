@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Star, Clock, Package, Heart } from 'lucide-react';
-import { useCart } from './CartContext';
+import { useCart } from '@/hooks/useCart';
 
 interface ProductCardProps {
   id: string;
