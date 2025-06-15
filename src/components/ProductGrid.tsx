@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
@@ -72,6 +71,7 @@ const ProductGrid = ({
             category={product.category || 'Sin categoría'}
             delivery_time={product.delivery_time || 7}
             stock={product.stock}
+            store_id={product.store.id}
             store_name={product.store?.name || 'Tienda'}
             store_rating={product.store?.rating || 0}
           />

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Star, Clock, Package, Heart } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
+import { Link } from 'react-router-dom';
 
 interface ProductCardProps {
   id: string;
@@ -15,6 +16,7 @@ interface ProductCardProps {
   category: string;
   delivery_time: number;
   stock: number;
+  store_id: string;
   store_name: string;
   store_rating?: number;
 }
@@ -28,6 +30,7 @@ const ProductCard = ({
   category,
   delivery_time,
   stock,
+  store_id,
   store_name,
   store_rating = 0
 }: ProductCardProps) => {
@@ -90,7 +93,9 @@ const ProductCard = ({
       <div className="p-4 space-y-3">
         {/* Información de la tienda */}
         <div className="flex items-center justify-between text-sm text-gray-600">
-          <span className="font-medium">{store_name}</span>
+          <Link to={`/store/${store_id}`} className="font-medium hover:text-primary transition-colors line-clamp-1">
+            {store_name}
+          </Link>
           {store_rating > 0 && (
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

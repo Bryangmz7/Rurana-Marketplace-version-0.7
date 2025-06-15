@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -161,7 +160,7 @@ const Marketplace = () => {
       {/* Floating Cart Button */}
       <Button
         onClick={() => setCartOpen(true)}
-        className="fixed bottom-6 right-6 z-40 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all hover:scale-110"
+        className="fixed top-20 right-6 z-40 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all hover:scale-110"
       >
         <ShoppingCart className="h-6 w-6" />
         {itemCount > 0 && (
