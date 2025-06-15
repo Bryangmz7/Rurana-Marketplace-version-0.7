@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Package, Clock, CheckCircle, XCircle, RefreshCw, ShoppingBag, Calendar } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Order {
   id: string;
@@ -38,6 +48,7 @@ const NewOrderHistory = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed'>('all');
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -102,6 +113,37 @@ const NewOrderHistory = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderToCancel) return;
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderToCancel);
+
+      if (error) {
+        throw error;
+      }
+
+      setOrders(prevOrders => prevOrders.map(o => 
+        o.id === orderToCancel ? { ...o, status: 'cancelled' } : o
+      ));
+      toast({
+        title: "Pedido Cancelado",
+        description: "Tu pedido ha sido cancelado con éxito.",
+      });
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo cancelar el pedido. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setOrderToCancel(null);
     }
   };
 
@@ -245,10 +287,32 @@ const NewOrderHistory = () => {
                   </div>
                 )}
               </CardContent>
+              <CardFooter className="bg-gray-50 p-4 flex justify-end">
+                {(order.status === 'pending' || order.status === 'confirmed') && (
+                  <Button variant="destructive" size="sm" onClick={() => setOrderToCancel(order.id)}>
+                    Cancelar Pedido
+                  </Button>
+                )}
+              </CardFooter>
             </Card>
           ))}
         </div>
       )}
+      
+      <AlertDialog open={!!orderToCancel} onOpenChange={(open) => !open && setOrderToCancel(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Esto cancelará permanentemente tu pedido.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setOrderToCancel(null)}>No, mantener pedido</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sí, cancelar pedido</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

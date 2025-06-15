@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, RefreshCw } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Order {
   id: string;
@@ -36,6 +45,7 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -132,16 +142,26 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     setUpdatingOrder(orderId);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('orders')
         .update({ status: newStatus })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error updating order status:', error);
+        throw error;
+      }
+      
+      console.log('Order status updated successfully in DB:', data);
 
-      setOrders(prev => prev.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
+      if (newStatus === 'cancelled') {
+        setOrders(prev => prev.filter(order => order.id !== orderId));
+      } else {
+        setOrders(prev => prev.map(order => 
+          order.id === orderId ? { ...order, status: newStatus } : order
+        ));
+      }
 
       toast({
         title: "Estado actualizado",
@@ -156,6 +176,13 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
       });
     } finally {
       setUpdatingOrder(null);
+    }
+  };
+
+  const handleCancelOrder = () => {
+    if (orderToCancel) {
+      updateOrderStatus(orderToCancel, 'cancelled');
+      setOrderToCancel(null);
     }
   };
 
@@ -340,26 +367,23 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                      <div className="text-sm text-gray-500">
-                        Cambiar estado:
-                      </div>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value: Order['status']) => updateOrderStatus(order.id, value)}
-                        disabled={updatingOrder === order.id}
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="confirmed">Confirmado</SelectItem>
-                          <SelectItem value="in_progress">En Progreso</SelectItem>
-                          <SelectItem value="shipped">Enviado</SelectItem>
-                          <SelectItem value="delivered">Entregado</SelectItem>
-                          <SelectItem value="cancelled">Cancelado</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t flex-wrap">
+                      {updatingOrder === order.id && <p className="text-sm text-gray-500">Actualizando...</p>}
+                      {order.status === 'confirmed' && (
+                          <>
+                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'in_progress')} disabled={!!updatingOrder}>Marcar como "En Progreso"</Button>
+                              <Button size="sm" variant="destructive" onClick={() => setOrderToCancel(order.id)} disabled={!!updatingOrder}>Cancelar Pedido</Button>
+                          </>
+                      )}
+                      {order.status === 'in_progress' && (
+                          <>
+                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'shipped')} disabled={!!updatingOrder}>Marcar como "Enviado"</Button>
+                              <Button size="sm" variant="destructive" onClick={() => setOrderToCancel(order.id)} disabled={!!updatingOrder}>Cancelar Pedido</Button>
+                          </>
+                      )}
+                      {order.status === 'shipped' && (
+                          <Button size="sm" onClick={() => updateOrderStatus(order.id, 'delivered')} disabled={!!updatingOrder}>Marcar como "Entregado"</Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -368,6 +392,20 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
           ))}
         </div>
       )}
+      <AlertDialog open={!!orderToCancel} onOpenChange={(open) => !open && setOrderToCancel(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro de cancelar este pedido?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Esto cancelará permanentemente el pedido para el cliente.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setOrderToCancel(null)}>No, mantener pedido</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sí, cancelar pedido</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
