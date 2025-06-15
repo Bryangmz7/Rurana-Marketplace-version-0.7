@@ -1,7 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import type { Map, Marker } from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -31,7 +30,8 @@ const LocationPicker = ({ mapboxToken, onLocationSelect, onClose }: LocationPick
     let mapInstance: Map | null = null;
 
     const initializeMap = async () => {
-      // Dynamically import mapbox-gl library
+      // Dynamically import mapbox-gl library and its CSS
+      await import('mapbox-gl/dist/mapbox-gl.css');
       const mapboxgl = (await import('mapbox-gl')).default;
 
       (mapboxgl as any).accessToken = mapboxToken;
