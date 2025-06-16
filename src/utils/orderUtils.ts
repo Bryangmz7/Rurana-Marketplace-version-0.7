@@ -46,11 +46,15 @@ export const contactBuyer = (order: Order, toast: any) => {
   const orderId = order.id.slice(-6);
   const orderTotal = order.total.toFixed(2);
   const orderDate = new Date(order.created_at).toLocaleDateString('es-PE');
-  const products = order.order_items.map(item => 
-    `- ${item.product.name} (x${item.quantity})`
-  ).join('\n');
+  const deliveryAddress = order.delivery_address || 'Sin dirección';
+  const deliveryNotes = order.delivery_notes ? `\n📝 Notas: ${order.delivery_notes}` : '';
+  const products = order.order_items.map(item => {
+    const base = `- ${item.product.name} (x${item.quantity})`;
+    const url = item.product.image_urls?.[0];
+    return url ? `${base}\n  ${url}` : base;
+  }).join('\n');
 
-  const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId} realizado el ${orderDate}.\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\n¿En qué puedo ayudarte con tu pedido?`;
+  const message = `¡Hola ${customerName}! 👋\n\nGracias por tu pedido #${orderId} del ${orderDate}.\n📍 Dirección: ${deliveryAddress}${deliveryNotes}\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\nPor favor confirma si los datos son correctos para continuar con la preparación del pedido.`;
   
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   window.open(whatsappUrl, '_blank');
