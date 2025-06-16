@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { MessageCircle, Package, Clock, CheckCircle, XCircle, User, Phone, MapPin, Calendar, Trash2, Mail, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Order {
   id: string;
@@ -40,6 +50,7 @@ interface Order {
 const OrdersList = ({ storeId }: { storeId: string }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -88,7 +99,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
         {
           event: 'DELETE',
           schema: 'public',
-          table: 'orders',
+8 table: 'orders',
           filter: `store_id=eq.${storeId}`
         },
         (payload) => {
@@ -248,22 +259,42 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
   };
 
   const deleteOrder = async (orderId: string) => {
+    setDeletingOrder(orderId);
     try {
+      console.log('Starting order deletion for:', orderId);
+      
+      // Primero eliminar los items del pedido
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
         .eq('order_id', orderId);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Error deleting order items:', itemsError);
+        throw itemsError;
+      }
 
+      console.log('Order items deleted successfully');
+
+      // Luego eliminar el pedido
       const { error: orderError } = await supabase
         .from('orders')
         .delete()
         .eq('id', orderId);
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Error deleting order:', orderError);
+        throw orderError;
+      }
 
-      setOrders(prev => prev.filter(order => order.id !== orderId));
+      console.log('Order deleted successfully');
+
+      // Actualizar el estado local inmediatamente
+      setOrders(prev => {
+        const newOrders = prev.filter(order => order.id !== orderId);
+        console.log('Orders after deletion:', newOrders.length);
+        return newOrders;
+      });
 
       toast({
         title: "Pedido eliminado",
@@ -273,9 +304,11 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
       console.error('Error deleting order:', error);
       toast({
         title: "Error",
-        description: "No se pudo eliminar el pedido",
+        description: "No se pudo eliminar el pedido. Inténtalo de nuevo.",
         variant: "destructive",
       });
+    } finally {
+      setDeletingOrder(null);
     }
   };
 
@@ -396,14 +429,40 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
                       {getStatusIcon(order.status)}
                       <span className="ml-1">{getStatusText(order.status)}</span>
                     </Badge>
-                    <Button
-                      onClick={() => deleteOrder(order.id)}
-                      variant="destructive"
-                      size="sm"
-                      className="ml-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingOrder === order.id}
+                          className="ml-2"
+                        >
+                          {deletingOrder === order.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Se eliminará permanentemente el pedido #{order.id.slice(-6)} 
+                            y todos sus elementos asociados.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteOrder(order.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar pedido
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardHeader>
