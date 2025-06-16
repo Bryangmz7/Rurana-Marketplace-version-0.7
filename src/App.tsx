@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Marketplace from "./pages/Marketplace";
+import CartPage from "./pages/CartPage";
+import StorePage from "./pages/StorePage";
 import SellerDashboard from "./pages/SellerDashboard";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -37,6 +40,8 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/marketplace" element={<Marketplace />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/store/:storeId" element={<StorePage />} />
                   <Route path="/seller-dashboard" element={<SellerDashboard />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="*" element={<NotFound />} />
