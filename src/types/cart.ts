@@ -10,6 +10,10 @@ export interface CartItem {
     image_urls: string[];
     store_id: string;
     stock: number;
+    store?: {
+      name: string;
+      rating?: number;
+    };
   };
 }
 

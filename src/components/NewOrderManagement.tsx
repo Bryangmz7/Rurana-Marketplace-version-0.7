@@ -13,6 +13,7 @@ interface Order {
   total: number;
   status: 'pending' | 'confirmed' | 'in_progress' | 'cancelled' | 'shipped' | 'delivered';
   delivery_address: string | null;
+  delivery_notes: string | null;
   customer_notes: string | null;
   created_at: string;
   order_items: Array<{
