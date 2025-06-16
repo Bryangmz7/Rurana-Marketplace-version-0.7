@@ -54,7 +54,7 @@ export const contactBuyer = (order: Order, toast: any) => {
     return url ? `${base}\n  ${url}` : base;
   }).join('\n');
 
-  const message = `¡Hola ${customerName}! 👋\n\nGracias por tu pedido #${orderId} del ${orderDate}.\n📍 Dirección: ${deliveryAddress}${deliveryNotes}\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\nPor favor confirma si los datos son correctos para continuar con la preparación del pedido.`;
+  const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId} realizado el ${orderDate}.\n📍 Dirección de entrega: ${deliveryAddress}${deliveryNotes}\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\nPor favor confirma si los datos son correctos para continuar con la preparación del pedido.`;
   
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   window.open(whatsappUrl, '_blank');
