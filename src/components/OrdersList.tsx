@@ -99,7 +99,7 @@ const OrdersList = ({ storeId }: { storeId: string }) => {
         {
           event: 'DELETE',
           schema: 'public',
-8 table: 'orders',
+          table: 'orders',
           filter: `store_id=eq.${storeId}`
         },
         (payload) => {
