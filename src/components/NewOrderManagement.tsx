@@ -336,18 +336,57 @@ const NewOrderManagement = ({ storeId }: { storeId: string }) => {
       whatsappNumber = '51' + whatsappNumber;
     }
 
-    const customerName = order.buyer_profile?.name || 'Cliente';
-    const orderId = order.id.slice(-6);
-    const orderTotal = order.total.toFixed(2);
-    const orderDate = new Date(order.created_at).toLocaleDateString('es-PE');
-    const products = order.order_items.map(item => 
-      `- ${item.product.name} (x${item.quantity})`
-    ).join('\n');
+    // Obtener información de la tienda actual
+    const getStoreInfo = async () => {
+      const { data: storeData } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('id', storeId)
+        .single();
+      
+      const storeName = storeData?.name || 'Nuestra Tienda';
+      
+      const customerName = order.buyer_profile?.name || 'Cliente';
+      const orderId = order.id.slice(-6);
+      const orderTotal = order.total.toFixed(2);
+      const orderDate = new Date(order.created_at).toLocaleDateString('es-PE');
+      const deliveryAddress = order.delivery_address || 'Dirección no especificada';
+      
+      const products = order.order_items.map(item => 
+        `• ${item.product.name} - Cantidad: ${item.quantity} - Precio: S/${item.unit_price.toFixed(2)}`
+      ).join('\n');
 
-    const message = `¡Hola ${customerName}! 👋\n\nTe contacto por tu pedido #${orderId} realizado el ${orderDate}.\n\n📦 *Productos:*\n${products}\n\n💰 *Total:* S/${orderTotal}\n\n¿En qué puedo ayudarte con tu pedido?`;
-    
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+      const message = `¡Hola ${customerName}! 👋
+
+Somos de *${storeName}* y queremos confirmar tu pedido:
+
+📋 *DETALLES DEL PEDIDO*
+• Número de pedido: #${orderId}
+• Fecha: ${orderDate}
+• Estado: Confirmado ✅
+
+🛍️ *PRODUCTOS SOLICITADOS*
+${products}
+
+💰 *RESUMEN DE COSTOS*
+• Subtotal: S/${(order.total - 10).toFixed(2)}
+• Envío: S/10.00
+• *Total: S/${orderTotal}*
+
+📍 *DIRECCIÓN DE ENTREGA*
+${deliveryAddress}
+
+${order.delivery_notes ? `📝 *Notas de entrega*\n${order.delivery_notes}\n\n` : ''}${order.customer_notes ? `💬 *Notas del cliente*\n${order.customer_notes}\n\n` : ''}⏰ Tu pedido será preparado y enviado en las próximas 24-48 horas.
+
+¿Todo está correcto? ¡Gracias por confiar en nosotros! 🙏
+
+_${storeName} - Productos únicos y personalizados_`;
+
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    };
+
+    getStoreInfo();
   };
 
   if (loading) {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
@@ -9,6 +8,7 @@ import { useCart } from '@/hooks/useCart';
 import CartItemsList from '@/components/CartItemsList';
 import DeliveryInformation from '@/components/DeliveryInformation';
 import CartTotals from '@/components/CartTotals';
+import StoreInfoCard from '@/components/StoreInfoCard';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,6 +22,16 @@ const CartPage = () => {
     notes: ''
   });
   const [orderNotes, setOrderNotes] = useState('');
+
+  // Agrupar items por tienda para mostrar información de cada tienda
+  const itemsByStore = items.reduce((acc: Record<string, typeof items>, item) => {
+    const storeId = item.product.store_id;
+    if (!acc[storeId]) {
+      acc[storeId] = [];
+    }
+    acc[storeId].push(item);
+    return acc;
+  }, {});
 
   const handleCheckout = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -237,6 +247,21 @@ const CartPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Lista de productos */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Información de las tiendas */}
+              {Object.keys(itemsByStore).map(storeId => {
+                const storeItems = itemsByStore[storeId];
+                const firstItem = storeItems[0];
+                return (
+                  <StoreInfoCard
+                    key={storeId}
+                    storeId={storeId}
+                    storeName={firstItem.product.store?.name || 'Tienda'}
+                    storeRating={firstItem.product.store?.rating || 0}
+                    className="mb-4"
+                  />
+                );
+              })}
+
               <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h2 className="text-xl font-semibold mb-4">Productos en tu carrito</h2>
                 <CartItemsList
