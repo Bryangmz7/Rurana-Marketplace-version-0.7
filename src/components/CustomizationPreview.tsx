@@ -10,12 +10,23 @@ const CustomizationPreview = () => {
   const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Mapeo de estilos a las imágenes que subiste
+  const styleToImageMap = {
+    'caricatura': '/lovable-uploads/e5d1a5f1-33c8-4b69-9c93-b74fef073671.png',
+    'peluche': '/lovable-uploads/cc203e8b-7ece-4f03-9c64-8a2f1df7ef81.png',
+    'bordado': '/lovable-uploads/4352885c-c893-42e2-8be2-f2ebcefb4a20.png',
+    'ceramica': '/lovable-uploads/9355ef8b-f2bb-427e-be86-c1dbc36a2fbd.png',
+    'digital': '/lovable-uploads/28b08f91-2bd0-49c8-b5c0-91cd5e81918c.png'
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target?.result as string);
+        // Reset preview when new image is uploaded
+        setGeneratedPreview(null);
       };
       reader.readAsDataURL(file);
     }
@@ -25,11 +36,13 @@ const CustomizationPreview = () => {
     if (!uploadedImage || !selectedStyle) return;
     
     setIsGenerating(true);
-    // Simulate AI processing
+    // Simular procesamiento de IA con un delay
     setTimeout(() => {
-      setGeneratedPreview('https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=400&fit=crop');
+      // Obtener la imagen correspondiente al estilo seleccionado
+      const previewImage = styleToImageMap[selectedStyle as keyof typeof styleToImageMap];
+      setGeneratedPreview(previewImage);
       setIsGenerating(false);
-    }, 2000);
+    }, 3000); // 3 segundos para simular procesamiento
   };
 
   return (
@@ -91,7 +104,7 @@ const CustomizationPreview = () => {
             
             <Select value={selectedStyle} onValueChange={setSelectedStyle}>
               <SelectTrigger className="w-full mb-4">
-                <SelectValue placeholder="Caricatura" />
+                <SelectValue placeholder="Selecciona un estilo" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="caricatura">Caricatura</SelectItem>
@@ -121,17 +134,18 @@ const CustomizationPreview = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-4">Vista Previa</h3>
             <p className="text-gray-600 mb-6">Sube una imagen y selecciona un estilo para ver la vista previa</p>
             
-            <div className="border-2 border-gray-300 rounded-xl p-8 mb-4 min-h-[160px] flex items-center justify-center">
+            <div className="border-2 border-gray-300 rounded-xl p-8 mb-4 min-h-[200px] flex items-center justify-center">
               {generatedPreview ? (
                 <img 
                   src={generatedPreview} 
                   alt="Generated preview" 
-                  className="w-full h-32 object-cover rounded-lg"
+                  className="w-full h-48 object-cover rounded-lg"
                 />
               ) : isGenerating ? (
                 <div className="text-primary">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p>Generando vista previa...</p>
+                  <p>Procesando con IA...</p>
+                  <p className="text-sm text-gray-500 mt-2">Esto puede tomar unos segundos</p>
                 </div>
               ) : (
                 <div className="text-gray-400">
@@ -147,13 +161,13 @@ const CustomizationPreview = () => {
               className="w-full rounded-xl"
             >
               <Eye className="h-4 w-4 mr-2" />
-              Generar Vista Previa
+              {isGenerating ? 'Generando...' : 'Generar Vista Previa'}
             </Button>
             
             {generatedPreview && (
               <div className="mt-4 p-4 bg-green-50 rounded-lg">
                 <p className="text-green-600 text-sm font-medium">¡Vista previa lista!</p>
-                <p className="text-green-600 text-sm">Tu producto personalizado se verá así</p>
+                <p className="text-green-600 text-sm">Tu producto personalizado estilo {selectedStyle}</p>
               </div>
             )}
           </div>
