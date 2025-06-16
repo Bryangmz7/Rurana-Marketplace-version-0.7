@@ -9,3 +9,5 @@ export const useCart = () => {
   }
   return context;
 };
+
+export type { CartItem, CartContextType } from '@/types/cart';

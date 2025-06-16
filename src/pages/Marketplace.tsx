@@ -6,7 +6,6 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import MarketplaceHeader from '@/components/MarketplaceHeader';
 import MarketplaceLayout from '@/components/MarketplaceLayout';
-import ImprovedCartSidebar from '@/components/ImprovedCartSidebar';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart } from 'lucide-react';
 import { useOptimizedCart } from '@/components/OptimizedCartContext';
@@ -40,7 +39,6 @@ const Marketplace = () => {
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
-  const [cartOpen, setCartOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     category: 'Todos',
     priceRange: [0, 1000],
@@ -158,18 +156,17 @@ const Marketplace = () => {
     <div className="min-h-screen bg-white">
       <Navbar />
       
-      {/* Floating Cart Button */}
-      <Button
-        onClick={() => setCartOpen(true)}
-        className="fixed top-20 right-6 z-40 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all hover:scale-110"
-      >
-        <ShoppingCart className="h-6 w-6" />
-        {itemCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-            {itemCount}
-          </span>
-        )}
-      </Button>
+      {/* Fixed Cart Button */}
+      <Link to="/cart">
+        <Button className="fixed top-20 right-6 z-50 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all hover:scale-110 bg-primary text-primary-foreground">
+          <ShoppingCart className="h-6 w-6" />
+          {itemCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
+              {itemCount}
+            </span>
+          )}
+        </Button>
+      </Link>
 
       <MarketplaceHeader
         searchQuery={searchQuery}
@@ -186,7 +183,6 @@ const Marketplace = () => {
         onClearFilters={clearFilters}
       />
       
-      <ImprovedCartSidebar isOpen={cartOpen} onClose={() => setCartOpen(false)} />
       <Footer />
     </div>
   );
