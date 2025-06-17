@@ -27,7 +27,6 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   });
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
-  const [departmentsLoading, setDepartmentsLoading] = useState(true);
   const { toast } = useToast();
 
   const categories = [
@@ -71,13 +70,14 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
   ];
 
   useEffect(() => {
+    console.log('Inicializando departamentos predefinidos');
+    setDepartments(peruDepartments);
     fetchDepartments();
   }, []);
 
   const fetchDepartments = async () => {
     try {
-      console.log('Intentando cargar departamentos...');
-      setDepartmentsLoading(true);
+      console.log('Intentando cargar departamentos desde DB...');
       
       const { data, error } = await supabase
         .from('departments')
@@ -88,24 +88,16 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
       if (error) {
         console.error('Error al cargar departamentos de la DB:', error);
-        // Si hay error, usar los departamentos predefinidos
-        console.log('Usando departamentos predefinidos del Perú');
-        setDepartments(peruDepartments);
-      } else if (!data || data.length === 0) {
-        console.log('No hay departamentos en la DB, usando predefinidos');
-        // Si no hay datos, usar los departamentos predefinidos
-        setDepartments(peruDepartments);
-      } else {
+        console.log('Manteniendo departamentos predefinidos del Perú');
+      } else if (data && data.length > 0) {
         console.log('Departamentos cargados desde la DB:', data.length);
         setDepartments(data);
+      } else {
+        console.log('No hay departamentos en la DB, manteniendo predefinidos');
       }
     } catch (error) {
       console.error('Error en fetchDepartments:', error);
-      // En caso de cualquier error, usar los departamentos predefinidos
-      console.log('Usando departamentos predefinidos por error');
-      setDepartments(peruDepartments);
-    } finally {
-      setDepartmentsLoading(false);
+      console.log('Manteniendo departamentos predefinidos por error');
     }
   };
 
@@ -191,6 +183,11 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     console.log(`Actualizado ${field}:`, value);
   };
 
+  const handleDepartmentChange = (value: string) => {
+    console.log('Departamento seleccionado:', value);
+    handleInputChange('department_id', value);
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
@@ -238,12 +235,12 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                 Categoría principal *
               </label>
               <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-white border border-gray-300">
                   <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+                <SelectContent className="bg-white border border-gray-200 shadow-lg z-[100]">
                   {categories.map((category) => (
-                    <SelectItem key={category} value={category} className="hover:bg-gray-100">
+                    <SelectItem key={category} value={category} className="hover:bg-gray-100 cursor-pointer">
                       {category}
                     </SelectItem>
                   ))}
@@ -257,27 +254,26 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
               </label>
               <Select 
                 value={formData.department_id} 
-                onValueChange={(value) => handleInputChange('department_id', value)}
-                disabled={departmentsLoading}
+                onValueChange={handleDepartmentChange}
               >
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder={
-                    departmentsLoading ? "Cargando departamentos..." : "Selecciona un departamento"
-                  } />
+                <SelectTrigger className="bg-white border border-gray-300">
+                  <SelectValue placeholder="Selecciona un departamento" />
                 </SelectTrigger>
-                <SelectContent className="bg-white border border-gray-200 shadow-lg z-50 max-h-60 overflow-y-auto">
+                <SelectContent className="bg-white border border-gray-200 shadow-lg z-[100] max-h-60 overflow-y-auto">
                   {departments.map((department) => (
-                    <SelectItem key={department.id} value={department.id} className="hover:bg-gray-100">
+                    <SelectItem 
+                      key={department.id} 
+                      value={department.id} 
+                      className="hover:bg-gray-100 cursor-pointer"
+                    >
                       {department.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {departments.length > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  {departments.length} departamentos disponibles
-                </p>
-              )}
+              <p className="text-sm text-gray-600 mt-1">
+                {departments.length} departamentos disponibles
+              </p>
             </div>
           </div>
 
@@ -285,7 +281,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             <Button
               type="submit"
               className="flex-1 bg-primary hover:bg-primary/90"
-              disabled={loading || departmentsLoading}
+              disabled={loading}
             >
               {loading ? 'Creando tienda...' : 'Crear mi tienda'}
             </Button>
