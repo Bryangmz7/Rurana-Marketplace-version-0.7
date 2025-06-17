@@ -23,10 +23,9 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     name: '',
     description: '',
     category: '',
-    department_id: ''
+    department_name: ''
   });
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const categories = [
@@ -113,7 +112,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
       return;
     }
 
-    if (!formData.department_id) {
+    if (!formData.department_name) {
       toast({
         title: "Campo requerido",
         description: "Por favor selecciona un departamento",
@@ -122,19 +121,13 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
       return;
     }
 
-    setLoading(true);
-
     try {
-      // Obtener el nombre del departamento seleccionado
-      const selectedDepartment = departments.find(d => d.id === formData.department_id);
-      
       console.log('Creando tienda con datos:', {
         user_id: userId,
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        department: selectedDepartment?.name || null,
-        department_id: formData.department_id,
+        department: formData.department_name,
         rating: 0
       });
       
@@ -146,8 +139,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             name: formData.name,
             description: formData.description,
             category: formData.category,
-            department: selectedDepartment?.name || null,
-            department_id: formData.department_id,
+            department: formData.department_name,
             rating: 0
           }
         ])
@@ -173,8 +165,6 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
         description: error.message || "No se pudo crear la tienda. Inténtalo de nuevo.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -185,7 +175,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
   const handleDepartmentChange = (value: string) => {
     console.log('Departamento seleccionado:', value);
-    handleInputChange('department_id', value);
+    handleInputChange('department_name', value);
   };
 
   return (
@@ -253,7 +243,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                 Departamento *
               </label>
               <Select 
-                value={formData.department_id} 
+                value={formData.department_name} 
                 onValueChange={handleDepartmentChange}
               >
                 <SelectTrigger className="bg-white border border-gray-300">
@@ -263,7 +253,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                   {departments.map((department) => (
                     <SelectItem 
                       key={department.id} 
-                      value={department.id} 
+                      value={department.name} 
                       className="hover:bg-gray-100 cursor-pointer"
                     >
                       {department.name}
@@ -281,9 +271,8 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             <Button
               type="submit"
               className="flex-1 bg-primary hover:bg-primary/90"
-              disabled={loading}
             >
-              {loading ? 'Creando tienda...' : 'Crear mi tienda'}
+              Crear mi tienda
             </Button>
           </div>
         </form>
