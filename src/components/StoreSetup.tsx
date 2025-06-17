@@ -41,13 +41,42 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     'Otros'
   ];
 
+  // Departamentos predefinidos del Perú
+  const peruDepartments = [
+    { id: 'amazonas', name: 'Amazonas' },
+    { id: 'ancash', name: 'Áncash' },
+    { id: 'apurimac', name: 'Apurímac' },
+    { id: 'arequipa', name: 'Arequipa' },
+    { id: 'ayacucho', name: 'Ayacucho' },
+    { id: 'cajamarca', name: 'Cajamarca' },
+    { id: 'callao', name: 'Callao' },
+    { id: 'cusco', name: 'Cusco' },
+    { id: 'huancavelica', name: 'Huancavelica' },
+    { id: 'huanuco', name: 'Huánuco' },
+    { id: 'ica', name: 'Ica' },
+    { id: 'junin', name: 'Junín' },
+    { id: 'la-libertad', name: 'La Libertad' },
+    { id: 'lambayeque', name: 'Lambayeque' },
+    { id: 'lima', name: 'Lima' },
+    { id: 'loreto', name: 'Loreto' },
+    { id: 'madre-de-dios', name: 'Madre de Dios' },
+    { id: 'moquegua', name: 'Moquegua' },
+    { id: 'pasco', name: 'Pasco' },
+    { id: 'piura', name: 'Piura' },
+    { id: 'puno', name: 'Puno' },
+    { id: 'san-martin', name: 'San Martín' },
+    { id: 'tacna', name: 'Tacna' },
+    { id: 'tumbes', name: 'Tumbes' },
+    { id: 'ucayali', name: 'Ucayali' }
+  ];
+
   useEffect(() => {
     fetchDepartments();
   }, []);
 
   const fetchDepartments = async () => {
     try {
-      console.log('Fetching departments from database...');
+      console.log('Intentando cargar departamentos...');
       setDepartmentsLoading(true);
       
       const { data, error } = await supabase
@@ -55,38 +84,26 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
         .select('id, name')
         .order('name');
 
-      console.log('Departments response:', { data, error });
+      console.log('Respuesta de departamentos:', { data, error });
 
       if (error) {
-        console.error('Error fetching departments:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los departamentos de la base de datos",
-          variant: "destructive",
-        });
-        setDepartments([]);
-        return;
-      }
-      
-      if (!data || data.length === 0) {
-        console.log('No departments found in database');
-        toast({
-          title: "Información",
-          description: "No se encontraron departamentos en la base de datos",
-        });
-        setDepartments([]);
+        console.error('Error al cargar departamentos de la DB:', error);
+        // Si hay error, usar los departamentos predefinidos
+        console.log('Usando departamentos predefinidos del Perú');
+        setDepartments(peruDepartments);
+      } else if (!data || data.length === 0) {
+        console.log('No hay departamentos en la DB, usando predefinidos');
+        // Si no hay datos, usar los departamentos predefinidos
+        setDepartments(peruDepartments);
       } else {
-        console.log('Departments loaded from database:', data.length);
+        console.log('Departamentos cargados desde la DB:', data.length);
         setDepartments(data);
       }
     } catch (error) {
-      console.error('Error in fetchDepartments:', error);
-      toast({
-        title: "Error",
-        description: "Error al conectar con la base de datos",
-        variant: "destructive",
-      });
-      setDepartments([]);
+      console.error('Error en fetchDepartments:', error);
+      // En caso de cualquier error, usar los departamentos predefinidos
+      console.log('Usando departamentos predefinidos por error');
+      setDepartments(peruDepartments);
     } finally {
       setDepartmentsLoading(false);
     }
@@ -104,10 +121,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
       return;
     }
 
-    // Si no hay departamentos disponibles, permitir crear la tienda sin departamento
-    if (departments.length === 0) {
-      console.log('No departments available, creating store without department');
-    } else if (!formData.department_id) {
+    if (!formData.department_id) {
       toast({
         title: "Campo requerido",
         description: "Por favor selecciona un departamento",
@@ -119,16 +133,16 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
     setLoading(true);
 
     try {
-      // Obtener el nombre del departamento seleccionado (si existe)
+      // Obtener el nombre del departamento seleccionado
       const selectedDepartment = departments.find(d => d.id === formData.department_id);
       
-      console.log('Creating store with data:', {
+      console.log('Creando tienda con datos:', {
         user_id: userId,
         name: formData.name,
         description: formData.description,
         category: formData.category,
         department: selectedDepartment?.name || null,
-        department_id: formData.department_id || null,
+        department_id: formData.department_id,
         rating: 0
       });
       
@@ -141,7 +155,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
             description: formData.description,
             category: formData.category,
             department: selectedDepartment?.name || null,
-            department_id: formData.department_id || null,
+            department_id: formData.department_id,
             rating: 0
           }
         ])
@@ -149,11 +163,11 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
         .single();
 
       if (error) {
-        console.error('Error creating store:', error);
+        console.error('Error creando tienda:', error);
         throw error;
       }
 
-      console.log('Store created successfully:', data);
+      console.log('Tienda creada exitosamente:', data);
       onStoreCreated(data);
       
       toast({
@@ -161,7 +175,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
         description: "Tu tienda se ha configurado correctamente",
       });
     } catch (error: any) {
-      console.error('Error creating store:', error);
+      console.error('Error creando tienda:', error);
       toast({
         title: "Error",
         description: error.message || "No se pudo crear la tienda. Inténtalo de nuevo.",
@@ -174,7 +188,7 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
-    console.log(`Updated ${field}:`, value);
+    console.log(`Actualizado ${field}:`, value);
   };
 
   return (
@@ -239,18 +253,16 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Departamento {departments.length > 0 ? '*' : '(Opcional)'}
+                Departamento *
               </label>
               <Select 
                 value={formData.department_id} 
                 onValueChange={(value) => handleInputChange('department_id', value)}
-                disabled={departmentsLoading || departments.length === 0}
+                disabled={departmentsLoading}
               >
                 <SelectTrigger className="bg-white">
                   <SelectValue placeholder={
-                    departmentsLoading ? "Cargando departamentos..." : 
-                    departments.length === 0 ? "No hay departamentos disponibles" : 
-                    "Selecciona un departamento"
+                    departmentsLoading ? "Cargando departamentos..." : "Selecciona un departamento"
                   } />
                 </SelectTrigger>
                 <SelectContent className="bg-white border border-gray-200 shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -261,9 +273,9 @@ const StoreSetup = ({ userId, onStoreCreated }: StoreSetupProps) => {
                   ))}
                 </SelectContent>
               </Select>
-              {departments.length === 0 && !departmentsLoading && (
+              {departments.length > 0 && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Los departamentos no están disponibles actualmente
+                  {departments.length} departamentos disponibles
                 </p>
               )}
             </div>
