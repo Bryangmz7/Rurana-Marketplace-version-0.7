@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, MoreVertical, Edit, Trash2, Package, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Clock } from 'lucide-react';
 import ProductForm from '@/components/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 
@@ -72,10 +73,8 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
 
   const handleProductSaved = (savedProduct: Product) => {
     if (editingProduct) {
-      // Actualizar producto existente
       setProducts(products.map(p => p.id === savedProduct.id ? savedProduct : p));
     } else {
-      // Agregar nuevo producto
       setProducts([savedProduct, ...products]);
     }
     setShowForm(false);
@@ -129,7 +128,7 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {showForm ? (
         <ProductForm
           storeId={store.id}
@@ -139,30 +138,34 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
         />
       ) : (
         <>
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Gestión de productos</h3>
-              <p className="text-gray-600 text-sm">
-                {products.length} producto{products.length !== 1 ? 's' : ''} en tu tienda
-              </p>
-            </div>
-            <div className="flex gap-4 items-center">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar productos..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+          {/* Header compacto */}
+          <div className="bg-white border rounded-lg p-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-lg font-semibold">Gestión de productos</h3>
+                <p className="text-gray-600 text-sm">
+                  {products.length} producto{products.length !== 1 ? 's' : ''} en tu tienda
+                </p>
               </div>
               <Button
                 onClick={() => setShowForm(true)}
                 className="bg-primary hover:bg-primary-600"
+                size="sm"
               >
-                <Plus className="h-5 w-5 mr-2" />
-                Agregar producto
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar
               </Button>
+            </div>
+            
+            {/* Barra de búsqueda */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar productos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-9"
+              />
             </div>
           </div>
 
@@ -189,87 +192,77 @@ const ProductManagement = ({ store }: ProductManagementProps) => {
               )}
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {filteredProducts.map((product) => (
-                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-square bg-gray-100 relative">
-                    {product.image_urls && product.image_urls[0] ? (
-                      <img
-                        src={product.image_urls[0]}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <Package className="h-12 w-12" />
-                      </div>
-                    )}
+                <Card key={product.id} className="group overflow-hidden hover:shadow-md transition-all duration-300 hover:scale-102">
+                  <div className="relative">
+                    <div className="aspect-square bg-gray-100 overflow-hidden">
+                      {product.image_urls && product.image_urls[0] ? (
+                        <img
+                          src={product.image_urls[0]}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <Package className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Action buttons */}
-                    <div className="absolute top-2 right-2 flex gap-1">
+                    {/* Botones de acción */}
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 
                         variant="secondary" 
                         size="sm"
                         onClick={() => handleEditProduct(product)}
-                        className="bg-white/90 hover:bg-white"
+                        className="bg-white/90 hover:bg-white h-6 w-6 p-0"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-3 w-3" />
                       </Button>
                       <Button 
                         variant="destructive" 
                         size="sm"
                         onClick={() => handleDeleteProduct(product.id)}
-                        className="bg-red-500/90 hover:bg-red-500"
+                        className="bg-red-500/90 hover:bg-red-500 h-6 w-6 p-0"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                     
-                    {/* Stock badge */}
-                    <div className="absolute top-2 left-2">
-                      <span className={`inline-block text-xs px-2 py-1 rounded-full ${
+                    {/* Badge de stock */}
+                    <div className="absolute top-1 left-1">
+                      <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full text-white ${
                         product.stock > 10 
-                          ? 'bg-green-100 text-green-800' 
+                          ? 'bg-green-500' 
                           : product.stock > 0 
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
                       }`}>
-                        Stock: {product.stock}
+                        {product.stock}
                       </span>
                     </div>
-
-                    {/* Multiple images indicator */}
-                    {product.image_urls && product.image_urls.length > 1 && (
-                      <div className="absolute bottom-2 left-2">
-                        <span className="bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          +{product.image_urls.length - 1} más
-                        </span>
-                      </div>
-                    )}
                   </div>
                   
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg mb-1 line-clamp-1">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                  <div className="p-2 space-y-1">
+                    <h3 className="font-medium text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                      {product.name}
+                    </h3>
                     
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-xl font-bold text-primary">S/{product.price}</span>
-                      <span className="text-sm text-gray-500 flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {product.delivery_time} días
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-primary">S/{product.price}</span>
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <Clock className="h-3 w-3" />
+                        <span>{product.delivery_time}d</span>
+                      </div>
                     </div>
                     
-                    <div className="flex justify-between items-center">
-                      <span className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-block bg-gray-100 text-gray-700 text-xs px-1.5 py-0.5 rounded">
                         {product.category}
                       </span>
                       <span className={`text-xs font-medium ${
-                        product.stock > 10 
-                          ? 'text-green-600' 
-                          : product.stock > 0 
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
+                        product.stock > 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {product.stock > 0 ? 'Disponible' : 'Agotado'}
                       </span>
