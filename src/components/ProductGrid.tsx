@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
@@ -41,15 +42,15 @@ const ProductGrid = ({
   onClearFilters 
 }: ProductGridProps) => {
   return (
-    <div className="lg:w-3/4">
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-gray-600">
-          Mostrando {filteredProducts.length} de {products.length} productos
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-gray-600">
+          {filteredProducts.length} de {products.length} productos
         </p>
         <select
           value={filters.sortBy}
           onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value })}
-          className="border border-gray-300 rounded-md px-3 py-2"
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm"
         >
           <option value="relevance">Relevancia</option>
           <option value="newest">Más recientes</option>
@@ -59,7 +60,7 @@ const ProductGrid = ({
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {filteredProducts.map((product) => (
           <ProductCard
             key={product.id}
@@ -80,8 +81,8 @@ const ProductGrid = ({
       
       {filteredProducts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No se encontraron productos que coincidan con tu búsqueda.</p>
-          <Button onClick={onClearFilters} variant="outline" className="mt-4">
+          <p className="text-gray-500">No se encontraron productos que coincidan con tu búsqueda.</p>
+          <Button onClick={onClearFilters} variant="outline" className="mt-4" size="sm">
             Limpiar filtros
           </Button>
         </div>
