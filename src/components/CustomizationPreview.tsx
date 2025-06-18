@@ -57,25 +57,25 @@ const CustomizationPreview = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {/* Step 1: Upload Image */}
-          <div className="bg-gray-50 rounded-2xl p-8 text-center">
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-white text-2xl font-bold">1</span>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {/* Step 1: Upload Image - Más pequeño */}
+          <div className="bg-gray-50 rounded-2xl p-6 text-center">
+            <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-lg font-bold">1</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Sube tu imagen</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Sube tu imagen</h3>
             
-            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 mb-4 hover:border-primary transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 mb-3 hover:border-primary transition-colors">
               {uploadedImage ? (
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded" 
-                  className="w-full h-32 object-cover rounded-lg mx-auto"
+                  className="w-full h-20 object-cover rounded-lg mx-auto"
                 />
               ) : (
                 <div className="text-gray-400">
-                  <Upload className="h-12 w-12 mx-auto mb-4" />
-                  <p>Arrastra tu imagen aquí</p>
+                  <Upload className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">Arrastra imagen</p>
                 </div>
               )}
             </div>
@@ -87,23 +87,23 @@ const CustomizationPreview = () => {
               className="hidden"
               id="image-upload"
             />
-            <Button asChild className="w-full rounded-xl">
+            <Button asChild className="w-full rounded-xl text-sm" size="sm">
               <label htmlFor="image-upload" className="cursor-pointer">
                 Cambiar imagen
               </label>
             </Button>
           </div>
 
-          {/* Step 2: Choose Style */}
-          <div className="bg-gray-50 rounded-2xl p-8 text-center">
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-white text-2xl font-bold">2</span>
+          {/* Step 2: Choose Style - Más pequeño */}
+          <div className="bg-gray-50 rounded-2xl p-6 text-center">
+            <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-lg font-bold">2</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Elige tu estilo</h3>
-            <p className="text-gray-600 mb-6">Estilo de personalización</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Elige tu estilo</h3>
+            <p className="text-gray-600 mb-4 text-sm">Estilo de personalización</p>
             
             <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-              <SelectTrigger className="w-full mb-4">
+              <SelectTrigger className="w-full mb-3">
                 <SelectValue placeholder="Selecciona un estilo" />
               </SelectTrigger>
               <SelectContent>
@@ -116,41 +116,42 @@ const CustomizationPreview = () => {
             </Select>
             
             {selectedStyle && (
-              <div className="bg-primary-50 rounded-lg p-4 text-left">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Palette className="h-5 w-5 text-primary" />
-                  <span className="font-medium text-primary">Estilo seleccionado:</span>
+              <div className="bg-primary-50 rounded-lg p-3 text-left">
+                <div className="flex items-center space-x-2 mb-1">
+                  <Palette className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-primary text-sm">Seleccionado:</span>
                 </div>
-                <p className="text-sm text-gray-600 capitalize">{selectedStyle}</p>
+                <p className="text-xs text-gray-600 capitalize">{selectedStyle}</p>
               </div>
             )}
           </div>
 
-          {/* Step 3: Preview */}
-          <div className="bg-gray-50 rounded-2xl p-8 text-center">
+          {/* Step 3: Preview - Mucho más grande, ocupa 2 columnas */}
+          <div className="lg:col-span-2 bg-gray-50 rounded-2xl p-8 text-center">
             <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
               <span className="text-white text-2xl font-bold">3</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Vista Previa</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Vista Previa</h3>
             <p className="text-gray-600 mb-6">Sube una imagen y selecciona un estilo para ver la vista previa</p>
             
-            <div className="border-2 border-gray-300 rounded-xl p-8 mb-4 min-h-[200px] flex items-center justify-center">
+            <div className="border-2 border-gray-300 rounded-xl p-8 mb-6 min-h-[400px] flex items-center justify-center">
               {generatedPreview ? (
                 <img 
                   src={generatedPreview} 
                   alt="Generated preview" 
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="max-w-full max-h-[350px] object-contain rounded-lg shadow-lg"
                 />
               ) : isGenerating ? (
                 <div className="text-primary">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p>Procesando con IA...</p>
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-lg">Procesando con IA...</p>
                   <p className="text-sm text-gray-500 mt-2">Esto puede tomar unos segundos</p>
                 </div>
               ) : (
                 <div className="text-gray-400">
-                  <Eye className="h-12 w-12 mx-auto mb-4" />
-                  <p>Tu producto personalizado se verá así</p>
+                  <Eye className="h-16 w-16 mx-auto mb-4" />
+                  <p className="text-lg">Tu producto personalizado se verá así</p>
+                  <p className="text-sm text-gray-500 mt-2">Sube una imagen y selecciona un estilo</p>
                 </div>
               )}
             </div>
@@ -158,15 +159,16 @@ const CustomizationPreview = () => {
             <Button 
               onClick={generatePreview}
               disabled={!uploadedImage || !selectedStyle || isGenerating}
-              className="w-full rounded-xl"
+              className="w-full rounded-xl text-lg py-3"
+              size="lg"
             >
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-5 w-5 mr-2" />
               {isGenerating ? 'Generando...' : 'Generar Vista Previa'}
             </Button>
             
             {generatedPreview && (
-              <div className="mt-4 p-4 bg-green-50 rounded-lg">
-                <p className="text-green-600 text-sm font-medium">¡Vista previa lista!</p>
+              <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                <p className="text-green-600 text-lg font-medium">¡Vista previa lista!</p>
                 <p className="text-green-600 text-sm">Tu producto personalizado estilo {selectedStyle}</p>
               </div>
             )}
