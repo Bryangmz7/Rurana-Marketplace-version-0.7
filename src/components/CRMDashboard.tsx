@@ -59,30 +59,39 @@ const CRMDashboard = ({ userId, userRole }: CRMDashboardProps) => {
 
       if (storeError) throw storeError;
 
-      // Obtener clientes que han comprado en la tienda
+      // Obtener pedidos que incluyen información del comprador
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           buyer_id,
           total,
-          created_at,
-          buyer_profiles:buyer_id (
-            name,
-            email,
-            phone,
-            avatar_url
-          )
+          created_at
         `)
         .eq('store_id', storeData.id);
 
       if (ordersError) throw ordersError;
+
+      // Obtener información de los compradores únicos
+      const buyerIds = [...new Set(ordersData?.map(order => order.buyer_id) || [])];
+      
+      if (buyerIds.length === 0) {
+        setCustomers([]);
+        return;
+      }
+
+      const { data: buyerProfiles, error: profilesError } = await supabase
+        .from('buyer_profiles')
+        .select('user_id, name, email, phone, avatar_url')
+        .in('user_id', buyerIds);
+
+      if (profilesError) throw profilesError;
 
       // Agrupar por cliente y calcular estadísticas
       const customerMap = new Map();
       
       ordersData?.forEach(order => {
         const customerId = order.buyer_id;
-        const profile = order.buyer_profiles;
+        const profile = buyerProfiles?.find(p => p.user_id === customerId);
         
         if (!customerMap.has(customerId)) {
           customerMap.set(customerId, {
@@ -131,7 +140,7 @@ const CRMDashboard = ({ userId, userRole }: CRMDashboardProps) => {
 
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('total, status')
+        .select('total, status, buyer_id')
         .eq('store_id', storeData.id);
 
       if (error) throw error;
@@ -154,38 +163,52 @@ const CRMDashboard = ({ userId, userRole }: CRMDashboardProps) => {
 
   const fetchBuyerData = async () => {
     try {
-      // Para compradores, obtener sus propios pedidos y vendedores
+      // Para compradores, obtener sus propios pedidos
       const { data: orders, error } = await supabase
         .from('orders')
         .select(`
           *,
-          stores:store_id (
+          stores!inner(
             name,
-            user_id,
-            seller_profiles:user_id (
-              name,
-              email,
-              phone,
-              avatar_url
-            )
+            user_id
           )
         `)
         .eq('buyer_id', userId);
 
       if (error) throw error;
 
+      // Obtener información de los vendedores
+      const sellerIds = [...new Set(orders?.map(order => order.stores?.user_id).filter(Boolean) || [])];
+      
+      if (sellerIds.length === 0) {
+        setCustomers([]);
+        setStats({
+          totalCustomers: 0,
+          totalOrders: orders?.length || 0,
+          totalRevenue: orders?.reduce((sum, order) => sum + Number(order.total), 0) || 0,
+          pendingOrders: orders?.filter(order => order.status === 'pending').length || 0
+        });
+        return;
+      }
+
+      const { data: sellerProfiles, error: profilesError } = await supabase
+        .from('seller_profiles')
+        .select('user_id, name, email, phone, avatar_url')
+        .in('user_id', sellerIds);
+
+      if (profilesError) throw profilesError;
+
       // Crear lista de vendedores con los que ha interactuado
       const sellerMap = new Map();
       
       orders?.forEach(order => {
-        const store = order.stores;
-        const sellerId = store?.user_id;
-        const sellerProfile = store?.seller_profiles;
+        const sellerId = order.stores?.user_id;
+        const sellerProfile = sellerProfiles?.find(p => p.user_id === sellerId);
         
-        if (!sellerMap.has(sellerId)) {
+        if (sellerId && !sellerMap.has(sellerId)) {
           sellerMap.set(sellerId, {
             id: sellerId,
-            name: sellerProfile?.name || store?.name || 'Vendedor',
+            name: sellerProfile?.name || order.stores?.name || 'Vendedor',
             email: sellerProfile?.email || '',
             phone: sellerProfile?.phone || null,
             avatar_url: sellerProfile?.avatar_url || null,
@@ -195,12 +218,14 @@ const CRMDashboard = ({ userId, userRole }: CRMDashboardProps) => {
           });
         }
         
-        const seller = sellerMap.get(sellerId);
-        seller.order_count += 1;
-        seller.total_spent += Number(order.total);
-        
-        if (!seller.last_order_date || order.created_at > seller.last_order_date) {
-          seller.last_order_date = order.created_at;
+        if (sellerId) {
+          const seller = sellerMap.get(sellerId);
+          seller.order_count += 1;
+          seller.total_spent += Number(order.total);
+          
+          if (!seller.last_order_date || order.created_at > seller.last_order_date) {
+            seller.last_order_date = order.created_at;
+          }
         }
       });
 
