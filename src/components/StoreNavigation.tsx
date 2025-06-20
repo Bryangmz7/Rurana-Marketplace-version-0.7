@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Store, Package, Users, BarChart3 } from 'lucide-react';
+import { Store, Package, Users, BarChart3, MessageCircle } from 'lucide-react';
 
 interface StoreNavigationProps {
   activeTab: string;
@@ -15,6 +15,7 @@ const StoreNavigation = ({ activeTab, onTabChange, storeName }: StoreNavigationP
     { id: 'products', label: 'Productos', icon: Package },
     { id: 'store', label: 'Mi Tienda', icon: Store },
     { id: 'customers', label: 'Clientes', icon: Users },
+    { id: 'crm', label: 'CRM', icon: MessageCircle },
   ];
 
   return (

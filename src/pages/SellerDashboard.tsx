@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import StoreOverview from '@/components/StoreOverview';
 import ProductManagement from '@/components/ProductManagement';
 import StoreManagement from '@/components/StoreManagement';
 import OrderManagement from '@/components/OrderManagement';
+import CRMDashboard from '@/components/CRMDashboard';
 import { useToast } from '@/hooks/use-toast';
 
 interface Store {
@@ -135,6 +137,8 @@ const SellerDashboard = () => {
         return <StoreManagement store={store} onStoreUpdated={handleStoreUpdated} />;
       case 'customers':
         return <OrderManagement storeId={store.id} />;
+      case 'crm':
+        return <CRMDashboard userId={user.id} userRole="seller" />;
       default:
         return <StoreOverview storeId={store.id} />;
     }
