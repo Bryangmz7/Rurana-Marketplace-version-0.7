@@ -97,30 +97,17 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
               buyerProfile = sellerProfile;
             }
 
-            // Si tampoco hay seller_profile, obtener de users
-            if (!buyerProfile) {
-              const { data: userData } = await supabase
-                .from('users')
-                .select('name')
-                .eq('id', order.buyer_id)
-                .maybeSingle();
-              
-              if (userData) {
-                buyerProfile = { name: userData.name, phone: null };
-              }
-            }
-
             return {
               ...order,
               status: order.status as Order['status'],
-              buyer_profile: buyerProfile || { name: 'Usuario', phone: null }
+              buyer_profile: buyerProfile || { name: 'Cliente Sin Nombre', phone: null }
             };
           } catch (error) {
             console.error('Error fetching buyer profile:', error);
             return {
               ...order,
               status: order.status as Order['status'],
-              buyer_profile: { name: 'Usuario', phone: null }
+              buyer_profile: { name: 'Cliente Sin Nombre', phone: null }
             };
           }
         })
@@ -308,7 +295,7 @@ const ConfirmedOrders = ({ storeId }: { storeId: string }) => {
                       <h4 className="font-medium text-blue-900">Cliente</h4>
                     </div>
                     <div className="space-y-2">
-                      <div className="font-medium">{order.buyer_profile?.name || 'Usuario'}</div>
+                      <div className="font-medium">{order.buyer_profile?.name || 'Cliente Sin Nombre'}</div>
                       {order.buyer_profile?.phone && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm">
